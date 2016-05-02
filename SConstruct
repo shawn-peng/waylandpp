@@ -18,12 +18,22 @@ env.Command(["src/wayland-client-protocol.cpp",
             include/wayland-client-protocol.hpp \
             src/wayland-client-protocol.cpp")
 
+wayland_util = env.SharedObject("src/wayland-util.cpp",
+                                CPPPATH = "include")
+
 wayland_client = env.SharedLibrary("src/wayland-client++",
                                    ["src/wayland-client.cpp",
                                     "src/wayland-client-protocol.cpp",
-                                    "src/wayland-util.cpp"],
+                                    wayland_util],
                                    CPPPATH = "include",
                                    LIBS = ["wayland-client"])
+
+wayland_server = env.SharedLibrary("src/wayland-server++",
+                                   ["src/wayland-server.cpp",
+#                                    "src/wayland-server-protocol.cpp",
+                                    wayland_util],
+                                   CPPPATH = "include",
+                                   LIBS = ["wayland-server"])
 
 wayland_egl = env.SharedLibrary("src/wayland-egl++",
                                 "src/wayland-egl.cpp",
