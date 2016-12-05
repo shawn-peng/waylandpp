@@ -9,3 +9,6 @@ wayland-client-protocol.hpp
 example/opengles
 example/shm
 doc
+
+tags
+
