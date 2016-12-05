@@ -37,10 +37,15 @@
 #include <wayland-util.hpp>
 
 namespace wayland {
-/** \brief
+/** \brief display class
 
 */
 class display_t {
+private:
+	wl_display *display;
+
+public:
+	display_t();
 };
 }
 
