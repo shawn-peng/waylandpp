@@ -29,120 +29,100 @@
 using namespace wayland;
 using namespace wayland::detail;
 
-argument_t::argument_t()
-{
-  argument.a = NULL;
-  is_array = false;
+argument_t::argument_t() {
+	argument.a = NULL;
+	is_array = false;
 }
 
-argument_t::argument_t(const argument_t &arg)
-{
-  argument.a = NULL;
-  is_array = false;
-  operator=(arg);
+argument_t::argument_t(const argument_t &arg) {
+	argument.a = NULL;
+	is_array = false;
+	operator=(arg);
 }
 
-argument_t &argument_t::operator=(const argument_t &arg)
-{
-  if(is_array)
-    {
-      wl_array_release(argument.a);
-      delete argument.a;
-    }
+argument_t &argument_t::operator=(const argument_t &arg) {
+	if(is_array) {
+		wl_array_release(argument.a);
+		delete argument.a;
+	}
 
-  if(arg.is_array)
-    {
-      argument.a = new wl_array;
-      wl_array_init(argument.a);
-      if(wl_array_copy(argument.a, arg.argument.a) < 0)
-        throw std::runtime_error("wl_array_copy failed.");
-    }
-  else
-    argument = arg.argument;
+	if(arg.is_array) {
+		argument.a = new wl_array;
+		wl_array_init(argument.a);
+		if(wl_array_copy(argument.a, arg.argument.a) < 0)
+			throw std::runtime_error("wl_array_copy failed.");
+	} else
+		argument = arg.argument;
 
-  is_array = arg.is_array;
+	is_array = arg.is_array;
 
-  return *this;
+	return *this;
 }
 
-argument_t::~argument_t()
-{
-  if(is_array)
-    {
-      wl_array_release(argument.a);
-      delete argument.a;
-    }
+argument_t::~argument_t() {
+	if(is_array) {
+		wl_array_release(argument.a);
+		delete argument.a;
+	}
 }
 
-argument_t::argument_t(uint32_t i)
-{
-  argument.u = i;
-  is_array = false;
+argument_t::argument_t(uint32_t i) {
+	argument.u = i;
+	is_array = false;
 }
 
-argument_t::argument_t(std::string s)
-{
-  argument.s = s.c_str();
-  is_array = false;
+argument_t::argument_t(std::string s) {
+	argument.s = s.c_str();
+	is_array = false;
 }
 
-argument_t::argument_t(proxy_t p)
-{
-  argument.o = reinterpret_cast<wl_object*>(p.proxy);
-  is_array = false;
+argument_t::argument_t(proxy_t p) {
+	argument.o = reinterpret_cast<wl_object*>(p.proxy);
+	is_array = false;
 }
 
-argument_t::argument_t(array_t a)
-{
-  argument.a = new wl_array;
-  a.get(argument.a);
-  is_array = true;
+argument_t::argument_t(array_t a) {
+	argument.a = new wl_array;
+	a.get(argument.a);
+	is_array = true;
 }
 
-array_t::array_t(wl_array *arr)
-{
-  wl_array_init(&a);
-  wl_array_copy(&a, arr);
+array_t::array_t(wl_array *arr) {
+	wl_array_init(&a);
+	wl_array_copy(&a, arr);
 }
 
-void array_t::get(wl_array *arr)
-{
-  wl_array_init(arr);
-  wl_array_copy(arr, &a);
+void array_t::get(wl_array *arr) {
+	wl_array_init(arr);
+	wl_array_copy(arr, &a);
 }
 
-array_t::array_t()
-{
-  wl_array_init(&a);
+array_t::array_t() {
+	wl_array_init(&a);
 }
 
-array_t::array_t(const array_t &arr)
-{
-  wl_array_init(&a);
-  wl_array_copy(&a, const_cast<wl_array*>(&arr.a));
+array_t::array_t(const array_t &arr) {
+	wl_array_init(&a);
+	wl_array_copy(&a, const_cast<wl_array*>(&arr.a));
 }
 
-array_t::array_t(array_t &&arr)
-{
-  wl_array_init(&a);
-  std::swap(a, arr.a);
+array_t::array_t(array_t &&arr) {
+	wl_array_init(&a);
+	std::swap(a, arr.a);
 }
 
-array_t::~array_t()
-{
-  wl_array_release(&a);
+array_t::~array_t() {
+	wl_array_release(&a);
 }
 
-array_t &array_t::operator=(const array_t &arr)
-{
-  wl_array_release(&a);
-  wl_array_init(&a);
-  wl_array_copy(&a, const_cast<wl_array*>(&arr.a));
-  return *this;
+array_t &array_t::operator=(const array_t &arr) {
+	wl_array_release(&a);
+	wl_array_init(&a);
+	wl_array_copy(&a, const_cast<wl_array*>(&arr.a));
+	return *this;
 }
 
-array_t &array_t::operator=(array_t &&arr)
-{
-  std::swap(a, arr.a);
-  return *this;
+array_t &array_t::operator=(array_t &&arr) {
+	std::swap(a, arr.a);
+	return *this;
 }
