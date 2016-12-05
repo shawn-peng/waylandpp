@@ -1,4 +1,5 @@
 *~
+*.swp
 *.o
 *.os
 *.so
@@ -6,6 +7,8 @@
 scanner/scanner
 wayland-client-protocol.cpp
 wayland-client-protocol.hpp
+wayland-server-protocol.cpp
+wayland-server-protocol.hpp
 example/opengles
 example/shm
 doc
