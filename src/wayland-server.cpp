@@ -31,3 +31,7 @@
 using namespace wayland;
 using namespace wayland::detail;
 
+display_t::display_t() {
+	display = wl_display_create();
+}
+
