@@ -24,7 +24,8 @@ clean:
 	-rm $(LIBDIR)* -rf
 	-rm $(OBJDIR)* -rf
 
-	#$(eval $(foreach d,$(SUBDIRS),make -C $(d);))
+#$(eval $(foreach d,$(SUBDIRS),make -C $(d);))
+
 subdir:
 	make -f src/Makefile all
 
