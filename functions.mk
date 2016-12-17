@@ -13,6 +13,7 @@ define make_executable
 ALL_TARGETS=$(ALL_TARGETS) $(BINDIR)$1
 $1_SOURCES:=$2
 $1_OBJECTS:=$$($1_SOURCES:$(SRCDIR)%.cpp=$(OBJDIR)%.o)
+$1_LIBS:=$(call expand_libflags,$3)
 $(BINDIR)$1: $$($1_OBJECTS)
 	@mkdir -p $(BINDIR)
 	$(CXX) -o $(BINDIR)$1 $$($1_OBJECTS) $$($1_LIBS) $(LDFLAGS)
@@ -20,19 +21,21 @@ $(BINDIR)$1: $$($1_OBJECTS)
 endef
 
 define make_sharedlib
-ALL_TARGETS=$(ALL_TARGETS) $(LIBDIR)$1
-LIB$1_SOURCES:=$2
-LIB$1_OBJECTS:=$$($1_SOURCES:$(SRCDIR)%.cpp=$(OBJDIR)%.o)
-LIB$1_LIBS:=$(call expand_libflags,$3)
+ALL_TARGETS=$(ALL_TARGETS) $(LIBDIR)lib$1
+$1_SOURCES:=$2
+$1_OBJECTS:=$$($1_SOURCES:$(SRCDIR)%.cpp=$(OBJDIR)%.o)
+$1_LIBS:=$(call expand_libflags,$3)
 $(LIBDIR)$1: $$($1_OBJECTS)
 	@mkdir -p $(LIBDIR)
-	$(CXX) -shared -o $(LIBDIR)$1 $$($1_OBJECTS) $$(LIB$1_LIBS) $(LDFLAGS)
+	$(CXX) -shared -o $(LIBDIR)$1 $$($1_OBJECTS) $$($1_LIBS) $(LDFLAGS)
 
 endef
 
 define make_staticlib
 
 endef
+
+#define run_command
 
 #$(foreach var,$1,echo ${var}:; echo ${${var}}; echo;)
 define print_vars
