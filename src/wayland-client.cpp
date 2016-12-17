@@ -36,9 +36,7 @@ event_queue_t::queue_ptr::~queue_ptr() {
 }
 
 event_queue_t::event_queue_t(wl_event_queue *q)
-	: queue(new queue_ptr( {
-	q
-})) {
+	: queue(new queue_ptr({ q })) {
 }
 
 wl_event_queue *event_queue_t::c_ptr() {
@@ -200,7 +198,7 @@ proxy_t &proxy_t::operator=(const proxy_t& p) {
 }
 
 proxy_t::proxy_t(proxy_t &&p)
-	: proxy(NULL), data(NULL), display(false), dontdestroy(NULL), interface(NULL) {
+	: proxy(NULL), data(NULL), display(false), dontdestroy(false), interface(NULL) {
 	operator=(std::move(p));
 }
 
