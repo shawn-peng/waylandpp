@@ -1,11 +1,11 @@
 include $(PROJDIR)defs.mk
 include $(PROJDIR)functions.mk
 
-TARGET= client
+TARGET = libwayland-client++.so
 
-LIBS= wayland-client
+LIBS = wayland-client
 
-SRCS= \
+SRCS = \
 	wayland-client.cpp \
 	wayland-client-protocol.cpp \
 	wayland-util.cpp
@@ -13,6 +13,6 @@ SRCS= \
 
 $(eval $(call make_sharedlib,$(TARGET),$(SRCS),$(LIBS)))
 
-$(call print_vars,ALL_TARGETS)
+$(eval $(call print_vars,ALL_TARGETS))
 
 
