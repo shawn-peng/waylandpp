@@ -27,14 +27,15 @@ clean:
 #$(eval $(foreach d,$(SUBDIRS),make -C $(d);))
 
 subdir:
-	make -f src/Makefile all
+#	make -C src -f src/Makefile $*
+	make -C src/ $*
 
 #$(BINDIR)%: 
 
 $(foreach target,$(BINARIES),$(eval $(call make_target,$(target))))
 
 %:
-	make -f $@.mk
+	make -f $@.mk $*
 
 $(OBJDIR)%.o: $(SRCDIR)%.cpp
 	mkdir -p $(dir $@)
