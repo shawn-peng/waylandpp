@@ -30,11 +30,14 @@
 #include <typeinfo>
 #include <utility>
 #include <vector>
+#include <list>
 
-#define wl_array_for_each_cpp(pos, array)                                   \
-  for (pos = (decltype(pos))(array)->data;                                  \
-       (const char *) pos < ((const char *) (array)->data + (array)->size); \
-       (pos)++)
+using namespace std;
+
+#define wl_array_for_each_cpp(pos, array)                                    \
+	for (pos = (decltype(pos))(array)->data;                                 \
+		(const char *) pos < ((const char *) (array)->data + (array)->size); \
+		(pos)++)
 
 namespace wayland {
 class proxy_t;
@@ -227,8 +230,9 @@ class array_t {
 		wl_array_add(&a, v.size()*sizeof(T));
 		T *p;
 		unsigned int c = 0;
-		wl_array_for_each_cpp(p, &a)
-		*p = v.at(c++);
+		wl_array_for_each_cpp(p, &a) {
+			*p = v.at(c++);
+		}
 	}
 
 	~array_t();
@@ -241,16 +245,18 @@ class array_t {
 		wl_array_add(&a, v.size()*sizeof(T));
 		T *p;
 		unsigned int c = 0;
-		wl_array_for_each_cpp(p, &a)
-		*p = v.at(c++);
+		wl_array_for_each_cpp(p, &a) {
+			*p = v.at(c++);
+		}
 		return *this;
 	}
 
 	template <typename T> operator std::vector<T>() {
 		std::vector<T> v;
 		T *p;
-		wl_array_for_each_cpp(p, &a)
-		v.push_back(*p);
+		wl_array_for_each_cpp(p, &a) {
+			v.push_back(*p);
+		}
 		return v;
 	}
 };
