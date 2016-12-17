@@ -29,6 +29,14 @@
 using namespace wayland;
 using namespace wayland::detail;
 
+/**
+ * list_t
+ */
+
+
+/**
+ * argument_t
+ */
 argument_t::argument_t() {
 	argument.a = NULL;
 	is_array = false;
@@ -87,6 +95,9 @@ argument_t::argument_t(array_t a) {
 	is_array = true;
 }
 
+/**
+ * array_t
+ */
 array_t::array_t(wl_array *arr) {
 	wl_array_init(&a);
 	wl_array_copy(&a, arr);
