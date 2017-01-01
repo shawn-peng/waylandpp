@@ -25,8 +25,8 @@
  */
 
 #include <iostream>
-#include <wayland-client.hpp>
-#include <wayland-client-protocol.hpp>
+#include <wayland-server.hpp>
+#include <wayland-server-protocol.hpp>
 
 using namespace wayland;
 using namespace wayland::detail;
