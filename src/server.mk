@@ -1,16 +1,17 @@
 include $(PROJDIR)defs.mk
 include $(PROJDIR)functions.mk
 
-TARGET= server
+TARGET = server
 
-LIBS= wayland-server
+LIBS = wayland-server
 
-SRCS= \
+SRCS = \
 	wayland-server.cpp \
 	wayland-server-protocol.cpp \
 	wayland-util.cpp
 
+$(info $(call make_sharedlib,$(TARGET),$(SRCS),$(LIBS)))
 
-$(eval $(call make_sharedlib,$(TARGET),$(SRCS),$(LIBS)))
+all: $(ALL_TARGETS)
 
 
