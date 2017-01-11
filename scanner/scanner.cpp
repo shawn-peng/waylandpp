@@ -534,9 +534,9 @@ struct interface_t : public element_t {
 };
 
 int main(int argc, char *argv[]) {
-	if (argc < 4) {
+	if (argc < 3) {
 		std::cerr << "Usage:" << std::endl
-		          << "  " << argv[0] << " protocol1.xml [protocol2.xml ...] protocol.hpp protocol.cpp" << std::endl;
+			<< "  " << argv[0] << " protocol.xml [extension-name]" << std::endl;
 		return 1;
 	}
 
