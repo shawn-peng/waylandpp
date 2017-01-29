@@ -550,6 +550,7 @@ int main(int argc, char *argv[]) {
 	xml_document doc;
 	doc.load_file(argv[1]);
 	xml_node protocol = doc.child("protocol");
+	std::string protocol_name = protocol.attribute("name").value();
 
 	for (xml_node &interface : protocol.children("interface")) {
 		interface_t iface;
@@ -681,7 +682,9 @@ int main(int argc, char *argv[]) {
 					}
 				}
 
-				if (argument.attribute("allow-null") && std::string(argument.attribute("allow-null").value()) == "true")
+				if (argument.attribute("allow-null") &&
+						std::string(argument.attribute("allow-null").value())
+						== "true")
 					arg.allow_null = true;
 				else
 					arg.allow_null = false;
@@ -752,14 +755,12 @@ int main(int argc, char *argv[]) {
 	                         std::ios_base::out | std::ios_base::trunc);
 
 	// header vars
-	std::string server_header_guard = server_header_filename;
-	std::string client_header_guard = client_header_filename;
+	std::string server_header_guard = protocol_name + "_SERVER_PROTOCOL_HPP";
+	std::string client_header_guard = protocol_name + "_CLIENT_PROTOCOL_HPP";
 	for (auto & c : server_header_guard) c = toupper(c);
 	for (auto & c : client_header_guard) c = toupper(c);
-	std::replace(server_header_guard.begin(), server_header_guard.end(),
-			'.', '_');
-	std::replace(server_header_guard.begin(), server_header_guard.end(),
-			'.', '_');
+
+	// client header
 
 	// header intro
 	wayland_client_hpp << "#ifndef " << client_header_guard << std::endl
