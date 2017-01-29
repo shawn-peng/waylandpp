@@ -1,6 +1,6 @@
 
 OPTS= -fpermissive -std=c++11
-INCLUDES= -I/usr/local/include/ -I./include/
+INCLUDES= -I/usr/local/include/ -I$(PROJDIR)include/
 
 LIBPATHS= -L/usr/local/lib
 COMMONLIBS= -lm -lwayland-egl -lEGL -lGL -lwld -lswc
