@@ -6,10 +6,9 @@
 *.so
 .sconsign.dblite
 scanner/scanner
-wayland-client-protocol.cpp
-wayland-client-protocol.hpp
-wayland-server-protocol.cpp
 wayland-server-protocol.hpp
+wayland-client-protocol.hpp
+wayland-protocol.cpp
 example/opengles
 example/shm
 doc
