@@ -11,11 +11,11 @@ SOURCES:= $(shell find $(SRCDIR) -name '*.cpp')
 
 SUBDIRS:= $(shell ls -d */)
 
-.PHONY: all clean subdir info
+.PHONY: all clean subdirs info
 
-all: subdir info $(ALL_TARGETS)#$(ALL_TAGETS)#$(addprefix $(BINDIR), $(BINARIES))
+all: subdirs info $(ALL_TARGETS)#$(ALL_TAGETS)#$(addprefix $(BINDIR), $(BINARIES))
 
-info: subdir
+info: subdirs
 	$(eval $(call print_vars,ALL_TARGETS))
 
 #-rm build/* -rf
@@ -26,9 +26,17 @@ clean:
 
 #$(eval $(foreach d,$(SUBDIRS),make -C $(d);))
 
-subdir:
+.PHONY: src scanner protocols
+subdirs: src scanner protocols
 #	make -C src -f src/Makefile $*
-	make -C src/ $*
+#	make -C src/ $*
+
+src: scanner protocols
+
+protocol: scanner
+
+src scanner protocols:
+	make -C $@ $*
 
 #$(BINDIR)%: 
 
