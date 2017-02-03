@@ -26,16 +26,18 @@ clean:
 
 #$(eval $(foreach d,$(SUBDIRS),make -C $(d);))
 
-.PHONY: src scanner protocols
-subdirs: src scanner protocols
+.PHONY: src scanner protocols example
+subdirs: src scanner protocols example
 #	make -C src -f src/Makefile $*
 #	make -C src/ $*
 
 src: scanner protocols
 
-protocol: scanner
+protocols: scanner
 
-src scanner protocols:
+example: protocols
+
+src scanner protocols example:
 	make -C $@ $*
 
 #$(BINDIR)%: 
