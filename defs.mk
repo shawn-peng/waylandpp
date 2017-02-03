@@ -1,4 +1,6 @@
 
+PROJDIR:= $(dir $(lastword $(MAKEFILE_LIST)))
+
 OPTS= -fpermissive -std=c++11
 INCLUDES= -I/usr/local/include/ -I$(PROJDIR)include/
 
