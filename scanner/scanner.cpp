@@ -31,6 +31,11 @@ using namespace pugi;
 
 std::list<std::string> interface_names;
 
+enum header_t {
+	SERVER_HEADER = 1,
+	CLIENT_HEADER,
+};
+
 struct element_t {
 	std::string summary;
 	std::string description;
@@ -96,13 +101,14 @@ struct argument_t : public element_t {
 };
 
 struct event_t : public element_t {
+	argument_t ret;
 	std::string name;
 	std::list<argument_t> args;
 	int since;
 
 	std::string print_functional() {
 		std::stringstream ss;
-		ss << "    std::function<void(";
+		ss << "        std::function<void(";
 		for (auto &arg : args)
 			ss << arg.print_type() << ", ";
 		if (args.size())
@@ -133,76 +139,27 @@ struct event_t : public element_t {
 		return ss.str();
 	}
 
-	std::string print_signal_header() {
-		std::stringstream ss;
-		if (description != "") {
-			ss << "  /** \\brief " << summary << std::endl;
-			for (auto &arg : args) {
-				ss << "      \\param " << arg.name << " ";
-				if (arg.summary != "")
-					ss << arg.summary;
-				ss << std::endl;
-			}
-			ss << description << std::endl
-			   << "    */" << std::endl;
-		}
-		ss << "  std::function<void(";
-		for (auto &arg : args)
-			ss << arg.print_type() + ", ";
-		if (args.size())
-			ss.str(ss.str().substr(0, ss.str().size() - 2));
-		ss.seekp(0, std::ios_base::end);
-		ss << ")> &on_" <<  name << "();" << std::endl;
-		return ss.str();
-	}
-
-	std::string print_signal_body(std::string interface_name) {
-		std::stringstream ss;
-		ss << "std::function<void(";
-		for (auto &arg : args)
-			ss << arg.print_type() << ", ";
-		if (args.size())
-			ss.str(ss.str().substr(0, ss.str().size() - 2));
-		ss.seekp(0, std::ios_base::end);
-		ss << ")> &" + interface_name + "_t::on_" + name + "()" << std::endl
-		   << "{" << std::endl
-		   << "  return std::static_pointer_cast<events_t>(get_events())->" + name + ";" << std::endl
-		   << "}" << std::endl;
-		return ss.str();
-	}
-};
-
-struct request_t : public event_t {
-	argument_t ret;
-	int opcode;
-
 	std::string print_header() {
 		std::stringstream ss;
 		if (description != "") {
-			ss << "  /** \\brief " << summary << std::endl;
-			if (ret.summary != "")
-				ss << "      \return " << ret.summary << std::endl;
+			ss << "    /** \\brief " << summary << std::endl;
 			for (auto &arg : args) {
 				if (arg.type == "new_id") {
 					if (arg.interface == "")
-						ss << "      \\param interface Interface to bind" << std::endl
-						   << "      \\param version Interface version" << std::endl;
+						ss << "        \\param interface Interface to bind" << std::endl
+						   << "        \\param version Interface version" << std::endl;
 				} else {
-					ss << "      \\param " << arg.name << " ";
+					ss << "        \\param " << arg.name << " ";
 					if (arg.summary != "")
-						ss << arg.summary;
+						ss << "    " <<  arg.summary;
 					ss << std::endl;
 				}
 			}
 			ss << description << std::endl
-			   << "    */" << std::endl;
+			   << "     */" << std::endl;
 		}
 
-		if (ret.name == "")
-			ss << "  void ";
-		else
-			ss << "  " << ret.print_type() << " ";
-		ss << name << "(";
+		ss << "    void send_" << name << "(";
 
 		for (auto &arg : args)
 			if (arg.type == "new_id") {
@@ -218,6 +175,179 @@ struct request_t : public event_t {
 		return ss.str();
 	}
 
+	std::string print_signal_header() {
+		std::stringstream ss;
+		if (description != "") {
+			ss << "    /** \\brief " << summary << std::endl;
+			for (auto &arg : args) {
+				ss << "        \\param " << arg.name << " ";
+				if (arg.summary != "")
+					ss << arg.summary;
+				ss << std::endl;
+			}
+			ss << description << std::endl
+			   << "     */" << std::endl;
+		}
+		ss << "    std::function<void(";
+		for (auto &arg : args)
+			ss << arg.print_type() + ", ";
+		if (args.size())
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ")> &on_" <<  name << "() {" << std::endl
+		   << "        return std::static_pointer_cast<events_t>(get_events())->" + name + ";" << std::endl
+		   << "    }" << std::endl;
+		return ss.str();
+	}
+
+	std::string print_signal_body(std::string interface_name) {
+		std::stringstream ss;
+		//ss << "std::function<void(";
+		//for (auto &arg : args)
+		//	ss << arg.print_type() << ", ";
+		//if (args.size())
+		//	ss.str(ss.str().substr(0, ss.str().size() - 2));
+		//ss.seekp(0, std::ios_base::end);
+		//ss << ")> &" + interface_name + "_t::on_" + name + "()" << std::endl
+		//   << "{" << std::endl
+		//   << "  return std::static_pointer_cast<events_t>(get_events())->" + name + ";" << std::endl
+		//   << "}" << std::endl;
+		return ss.str();
+	}
+};
+
+struct request_t : public event_t {
+	int opcode;
+
+	std::string print_header() {
+		std::stringstream ss;
+		if (description != "") {
+			ss << "    /** \\brief " << summary << std::endl;
+			if (ret.summary != "") {
+				ss << "      \\return " << ret.summary << std::endl;
+			}
+			for (auto &arg : args) {
+				if (arg.type == "new_id") {
+					if (arg.interface == "")
+						ss << "        \\param interface Interface to bind" << std::endl
+						   << "        \\param version Interface version" << std::endl;
+				} else {
+					ss << "        \\param " << arg.name << " ";
+					if (arg.summary != "")
+						ss << "    " <<  arg.summary;
+					ss << std::endl;
+				}
+			}
+			ss << description << std::endl
+			   << "     */" << std::endl;
+		}
+
+		if (ret.name == "")
+			ss << "    void ";
+		else
+			ss << "    " << ret.print_type() << " ";
+		ss << name << "(";
+
+		bool new_id_arg = false;
+		for (auto &arg : args) {
+			if (arg.type == "new_id") {
+				if (arg.interface == "") {
+					ss << "proxy_t &interface, uint32_t version, ";
+					new_id_arg = true;
+				}
+			} else {
+				ss << arg.print_argument() << ", ";
+			}
+		}
+
+		if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ") {" << std::endl;
+
+		if (ret.name == "") {
+			ss << "        marshal(" << opcode << ", ";
+		} else {
+			ss << "        proxy_t p = marshal_constructor(" << opcode << ", ";
+			if (ret.interface == "")
+				ss << "interface.interface";
+			else
+				ss << "&" << ret.interface << "_interface";
+			ss << ", ";
+		}
+
+		for (auto &arg : args) {
+			if (arg.type == "new_id") {
+				if (arg.interface == "")
+					ss << "std::string(interface.interface->name), version, ";
+				ss << "NULL, ";
+			} else if (arg.enum_name != "")
+				ss << "static_cast<uint32_t>(" << arg.name + "), ";
+			else
+				ss << arg.name + ", ";
+		}
+
+		ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ");" << std::endl;
+
+		if (ret.name != "") {
+			if (new_id_arg) {
+				ss << "        interface = interface.copy_constructor(p);" << std::endl
+				   << "        return interface;" << std::endl;
+			} else
+				ss << "        return " << ret.print_type() << "(p);" << std::endl;
+		}
+		ss << "    }" << std::endl;
+		return ss.str();
+
+		// ================================================================
+		// only declaration
+		// if (ret.name == "")
+		// 	ss << "    void ";
+		// else
+		// 	ss << "    " << ret.print_type() << " ";
+		// ss << name << "(";
+
+		// for (auto &arg : args)
+		// 	if (arg.type == "new_id") {
+		// 		if (arg.interface == "")
+		// 			ss << "proxy_t &interface, uint32_t version, ";
+		// 	} else
+		// 		ss << arg.print_argument() << ", ";
+
+		// if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
+		// 	ss.str(ss.str().substr(0, ss.str().size() - 2));
+		// ss.seekp(0, std::ios_base::end);
+		// ss << ");" << std::endl;
+		// return ss.str();
+	}
+
+	std::string print_handle_header() {
+		std::stringstream ss;
+		if (description != "") {
+			ss << "    /** \\brief " << summary << std::endl;
+			for (auto &arg : args) {
+				ss << "        \\param " << arg.name << " ";
+				if (arg.summary != "")
+					ss << arg.summary;
+				ss << std::endl;
+			}
+			ss << description << std::endl
+			   << "     */" << std::endl;
+		}
+		ss << "    std::function<void(";
+		for (auto &arg : args)
+			ss << arg.print_type() + ", ";
+		if (args.size())
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ")> &on_" <<  name << "() {" << std::endl
+		   << "        return std::static_pointer_cast<requests_t>(get_requests())->" + name + ";" << std::endl
+		   << "    }" << std::endl;
+		return ss.str();
+	}
+
 	std::string print_body(std::string interface_name) {
 		std::stringstream ss;
 		if (ret.name == "")
@@ -227,14 +357,16 @@ struct request_t : public event_t {
 		ss << interface_name << "_t::" << name << "(";
 
 		bool new_id_arg = false;
-		for (auto &arg : args)
+		for (auto &arg : args) {
 			if (arg.type == "new_id") {
 				if (arg.interface == "") {
 					ss << "proxy_t &interface, uint32_t version, ";
 					new_id_arg = true;
 				}
-			} else
+			} else {
 				ss << arg.print_argument() << ", ";
+			}
+		}
 
 		if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
@@ -308,28 +440,28 @@ struct enumeration_t : public element_t {
 			   << "  */" << std::endl;
 		}
 
-		if (!bitfield)
-			ss << "enum class " << iface_name << "_" << name << " : uint32_t" << std::endl
-			   << "  {" << std::endl;
-		else
-			ss << "struct " << iface_name << "_" << name << " : public detail::bitfield<" << width << ", " << id << ">" << std::endl
-			   << "{" << std::endl
-			   << "  " << iface_name << "_" << name << "(const detail::bitfield<" << width << ", " << id << "> &b)" << std::endl
-			   << "    : detail::bitfield<" << width << ", " << id << ">(b) {}" << std::endl
-			   << "  " << iface_name << "_" << name << "(const uint32_t value)" << std::endl
-			   << "    : detail::bitfield<" << width << ", " << id << ">(value) {}" << std::endl;
+		if (!bitfield) {
+			ss << "enum class " << iface_name << "_" << name << " : uint32_t {" << std::endl;
+		} else {
+			ss << "struct " << iface_name << "_" << name << " : public detail::bitfield<" << width << ", " << id << "> {" << std::endl
+			   << "    " << iface_name << "_" << name << "(const detail::bitfield<" << width << ", " << id << "> &b)" << std::endl
+			   << "        : detail::bitfield<" << width << ", " << id << ">(b) {}" << std::endl
+			   << "    " << iface_name << "_" << name << "(const uint32_t value)" << std::endl
+			   << "        : detail::bitfield<" << width << ", " << id << ">(value) {}" << std::endl;
+		}
 
 		for (auto &entry : entries) {
 			if (entry.description != "") {
-				ss << "  /** \\brief " << entry.summary << std::endl
+				ss << "    /** \\brief " << entry.summary << std::endl
 				   << entry.description << std::endl
-				   << "    */" << std::endl;
+				   << "     */" << std::endl;
 			}
 
-			if (!bitfield)
-				ss << "  " << entry.name << " = " << entry.value << "," << std::endl;
-			else
-				ss << "  static const detail::bitfield<" << width << ", " << id << "> " << entry.name << ";" << std::endl;
+			if (!bitfield) {
+				ss << "    " << entry.name << " = " << entry.value << "," << std::endl;
+			} else {
+				ss << "    static const detail::bitfield<" << width << ", " << id << "> " << entry.name << ";" << std::endl;
+			}
 		}
 
 		if (!bitfield) {
@@ -356,82 +488,128 @@ struct enumeration_t : public element_t {
 struct interface_t : public element_t {
 	int version;
 	std::string name;
+	std::string client_class;
+	std::string server_class;
 	std::string orig_name;
 	int destroy_opcode;
 	std::list<request_t> requests;
 	std::list<event_t> events;
 	std::list<enumeration_t> enums;
 
-	std::string print_forward() {
+	//std::string proxyclass_name;
+
+	std::string print_forward(header_t htype) {
 		std::stringstream ss;
-		ss << "class " << name << "_t;" << std::endl;
-		for (auto &e : enums)
-			ss << e.print_forward(name);
+		if (htype == SERVER_HEADER) {
+			ss << "class " << server_class << ";" << std::endl;
+			for (auto &e : enums) {
+				ss << e.print_forward(name);
+			}
+		} else if (htype == CLIENT_HEADER) {
+			ss << "class " << client_class << ";" << std::endl;
+			for (auto &e : enums) {
+				ss << e.print_forward(name);
+			}
+		}
+		ss << std::endl;
 		return ss.str();
 	}
 
-	std::string print_header() {
+	std::string print_header(header_t htype) {
 		std::stringstream ss;
 		if (description != "") {
 			ss << "/** \\brief " << summary << std::endl
 			   << description << std::endl
-			   << "  */" << std::endl;
+			   << " */" << std::endl;
 		}
-		ss << "class " << name << "_t : public proxy_t" << std::endl
-		   << "{" << std::endl
-		   << "private:" << std::endl
-		   << "  struct events_t : public proxy_t::events_base_t" << std::endl
-		   << "  {" << std::endl;
 
-		for (auto &event : events)
-			ss << event.print_functional() << std::endl;
+		if (htype == SERVER_HEADER) {
+			ss << "class " << server_class << " : public resource_t {" << std::endl
+				<< "private:" << std::endl
+				<< "    struct requests_t : public resource_t::requests_base_t {" << std::endl;
 
-		ss << "  };" << std::endl
-		   << std::endl
-		   << "  static int dispatcher(int opcode, std::vector<detail::any> args, std::shared_ptr<proxy_t::events_base_t> e);" << std::endl
-		   << std::endl;
+			//for (auto &event : events) {
+			for (auto &request : requests) {
+				ss << request.print_functional() << std::endl;
+			}
 
-		ss << "public:" << std::endl
-		   << "  " << name << "_t();" << std::endl
-		   << "  explicit " << name << "_t(const proxy_t &proxy);" << std::endl
-		   << std::endl;
+			ss << "    };" << std::endl
+				<< std::endl
+				<< "    static int dispatcher(int opcode, std::vector<detail::any> args, std::shared_ptr<resource_t::requests_base_t> e);" << std::endl
+				<< std::endl;
 
-		for (auto &request : requests)
-			if (request.name != "destroy")
-				ss << request.print_header() << std::endl;
+			ss << "public:" << std::endl
+				<< "    " << server_class << "();" << std::endl
+				<< "    explicit " << server_class << "(const resource_t &resource);" << std::endl
+				<< std::endl;
 
-		for (auto &event : events)
-			ss << event.print_signal_header() << std::endl;
+			for (auto &request : requests) {
+				ss << request.print_handle_header() << std::endl;
+			}
+
+			for (auto &event : events) {
+				if (event.name != "destroy") {
+					ss << event.print_header() << std::endl;
+				}
+			}
+		} else if (htype == CLIENT_HEADER) {
+			ss << "class " << client_class << " : public proxy_t {" << std::endl
+				<< "private:" << std::endl
+				<< "    struct events_t : public proxy_t::events_base_t {" << std::endl;
+
+			for (auto &event : events) {
+				ss << event.print_functional() << std::endl;
+			}
+
+			ss << "    };" << std::endl
+				<< std::endl
+				<< "    static int dispatcher(int opcode, std::vector<detail::any> args, std::shared_ptr<proxy_t::events_base_t> e);" << std::endl
+				<< std::endl;
+
+			ss << "public:" << std::endl
+				<< "    " << client_class << "();" << std::endl
+				<< "    explicit " << client_class << "(const proxy_t &proxy);" << std::endl
+				<< std::endl;
+
+			for (auto &event : events) {
+				ss << event.print_signal_header() << std::endl;
+			}
+
+			for (auto &request : requests) {
+				if (request.name != "destroy") {
+					ss << request.print_header() << std::endl;
+				}
+			}
+		}
 
 		ss << "};" << std::endl
 		   << std::endl;
 
-		for (auto &enumeration : enums)
+		for (auto &enumeration : enums) {
 			ss << enumeration.print_header(name) << std::endl;
+		}
 
 		return ss.str();
 	}
 
 	std::string print_interface_header() {
 		std::stringstream ss;
-		ss << "  extern const wl_interface " << name << "_interface;" << std::endl;
+		ss << "    extern const wl_interface " << name << "_interface;" << std::endl;
 		return ss.str();
 	}
 
 	std::string print_body() {
 		std::stringstream ss;
 		ss << name << "_t::" << name << "_t(const proxy_t &p)" << std::endl
-		   << "  : proxy_t(p)" << std::endl
-		   << "{" << std::endl
-		   << "  set_events(std::shared_ptr<proxy_t::events_base_t>(new events_t), dispatcher);" << std::endl
-		   << "  set_destroy_opcode(" << destroy_opcode << ");" << std::endl
-		   << "  interface = &" << name << "_interface;" << std::endl
-		   << "  copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
+		   << "  : proxy_t(p) {" << std::endl
+		   << "    set_events(std::shared_ptr<proxy_t::events_base_t>(new events_t), dispatcher);" << std::endl
+		   << "    set_destroy_opcode(" << destroy_opcode << ");" << std::endl
+		   << "    interface = &" << name << "_interface;" << std::endl
+		   << "    copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
 		   << "    { return " << name << "_t(p); };" << std::endl
 		   << "}" << std::endl
 		   << std::endl
-		   << name << "_t::" << name << "_t()" << std::endl
-		   << "{" << std::endl
+		   << name << "_t::" << name << "_t() {" << std::endl
 		   << "  interface = &" << name << "_interface;" << std::endl
 		   << "  copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
 		   << "    { return " << name << "_t(p); };" << std::endl
@@ -535,6 +713,15 @@ struct interface_t : public element_t {
 	}
 };
 
+struct protocol_t : public element_t {
+	std::string name;
+	std::list<interface_t> ifaces;
+};
+
+void gen_client_header(std::string filepath,
+		const protocol_t &protocol) {
+}
+
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
 		std::cerr << "Usage:" << std::endl
@@ -549,10 +736,10 @@ int main(int argc, char *argv[]) {
 
 	xml_document doc;
 	doc.load_file(argv[1]);
-	xml_node protocol = doc.child("protocol");
-	std::string protocol_name = protocol.attribute("name").value();
+	xml_node protocol_node = doc.child("protocol");
+	std::string protocol_name = protocol_node.attribute("name").value();
 
-	for (xml_node &interface : protocol.children("interface")) {
+	for (xml_node &interface : protocol_node.children("interface")) {
 		interface_t iface;
 		iface.destroy_opcode = -1;
 		iface.orig_name = interface.attribute("name").value();
@@ -561,6 +748,8 @@ int main(int argc, char *argv[]) {
 		} else {
 			iface.name = iface.orig_name;
 		}
+		iface.client_class = iface.name + "_proxy_t";
+		iface.server_class = iface.name + "_resource_t";
 
 		if (interface.attribute("version")) {
 			std::string ver_str(interface.attribute("version").value());
@@ -772,34 +961,74 @@ int main(int argc, char *argv[]) {
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
 	                   << std::endl
-	                   << "#include <wayland-client.hpp>" << std::endl
+	                   //<< "#include <wayland-client.hpp>" << std::endl
 	                   << std::endl
-	                   << "namespace wayland" << std::endl
-	                   << "{" << std::endl
+	                   << "namespace wayland {" << std::endl
 	                   << std::endl;
 
 	// forward declarations
-	for (auto &iface : interfaces)
-		if (iface.name != "display")
-			wayland_client_hpp << iface.print_forward();
+	for (auto &iface : interfaces) {
+		wayland_client_hpp << iface.print_forward(CLIENT_HEADER);
+	}
 	wayland_client_hpp << std::endl;
 
 	// interface headers
-	wayland_client_hpp << "namespace detail" << std::endl
-	                   << "{" << std::endl;
-	for (auto &iface : interfaces)
+	wayland_client_hpp << "namespace detail {" << std::endl;
+	for (auto &iface : interfaces) {
 		wayland_client_hpp << iface.print_interface_header();
+	}
 	wayland_client_hpp  << "}" << std::endl
 	                    << std::endl;
 
 	// class declarations
-	for (auto &iface : interfaces)
-		if (iface.name != "display")
-			wayland_client_hpp << iface.print_header() << std::endl;
+	for (auto &iface : interfaces) {
+		wayland_client_hpp << iface.print_header(CLIENT_HEADER) << std::endl;
+	}
 	wayland_client_hpp << std::endl
 	                   << "}" << std::endl
 	                   << std::endl
 	                   << "#endif" << std::endl;
+
+	// server header
+
+	// header intro
+	wayland_server_hpp << "#ifndef " << server_header_guard << std::endl
+	                   << "#define " << server_header_guard << std::endl
+	                   << std::endl
+	                   << "#include <array>" << std::endl
+	                   << "#include <functional>" << std::endl
+	                   << "#include <memory>" << std::endl
+	                   << "#include <string>" << std::endl
+	                   << "#include <vector>" << std::endl
+	                   << std::endl
+	                   << std::endl
+	                   << "namespace wayland {" << std::endl
+	                   << std::endl;
+
+	// forward declarations
+	for (auto &iface : interfaces) {
+		wayland_server_hpp << iface.print_forward(SERVER_HEADER);
+	}
+	wayland_server_hpp << std::endl;
+
+	// interface headers
+	wayland_server_hpp << "namespace detail {" << std::endl;
+	for (auto &iface : interfaces) {
+		wayland_server_hpp << iface.print_interface_header();
+	}
+	wayland_server_hpp  << "}" << std::endl
+	                    << std::endl;
+
+	// class declarations
+	for (auto &iface : interfaces) {
+		wayland_server_hpp << iface.print_header(SERVER_HEADER) << std::endl;
+	}
+	wayland_server_hpp << std::endl
+	                   << "}" << std::endl
+	                   << std::endl
+	                   << "#endif" << std::endl;
+
+	// source file
 
 	// source intro
 	wayland_cpp << "#include <wayland-client-protocol.hpp>" << std::endl
@@ -820,6 +1049,7 @@ int main(int argc, char *argv[]) {
 
 	// clean up
 	wayland_client_hpp.close();
+	wayland_server_hpp.close();
 	wayland_cpp.close();
 
 	return 0;
