@@ -1,13 +1,11 @@
 
 .PHONY: all
 
-TARGETS = client server protocols
+TARGETS = client server
 
 .PHONY: $(TARGETS)
 
 all: $(TARGETS)
-
-client server: protocols
 
 $(TARGETS):
 	make -f $@.mk
