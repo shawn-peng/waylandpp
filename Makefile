@@ -1,8 +1,9 @@
 
 include defs.mk
 include functions.mk
+include rules.mk
 
-export PROJDIR= $(shell pwd)/
+export PROJDIR= $(abspath .)/
 export ALL_TARGETS
 
 #TARGETS=client server
@@ -46,10 +47,6 @@ $(foreach target,$(BINARIES),$(eval $(call make_target,$(target))))
 
 %:
 	make -f $@.mk $*
-
-$(OBJDIR)%.o: $(SRCDIR)%.cpp
-	mkdir -p $(dir $@)
-	$(CXX) -c $< $(CXXFLAGS) -o $@
 
 VAR/TEST/A=This is a var test
 

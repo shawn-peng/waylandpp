@@ -11,8 +11,8 @@ endef
 #args	$1: name $2: sources $3: dep libs
 define make_executable
 ALL_TARGETS=$(ALL_TARGETS) $(BINDIR)$1
-$1_SOURCES:=$2
-$1_OBJECTS:=$$($1_SOURCES:$(SRCDIR)%.cpp=$(OBJDIR)%.o)
+$1_SOURCES:=$$(abspath $2)
+$1_OBJECTS:=$$($1_SOURCES:$(PROJDIR)%.cpp=$(OBJDIR)%.o)
 $1_LIBS:=$(call expand_libflags,$3)
 $(BINDIR)$1: $$($1_OBJECTS)
 	@mkdir -p $(BINDIR)
@@ -22,8 +22,8 @@ endef
 
 define make_sharedlib
 ALL_TARGETS=$(ALL_TARGETS) $(LIBDIR)lib$1
-$1_SOURCES:=$2
-$1_OBJECTS:=$$($1_SOURCES:$(SRCDIR)%.cpp=$(OBJDIR)%.o)
+$1_SOURCES:=$$(abspath $2)
+$1_OBJECTS:=$$($1_SOURCES:$(PROJDIR)%.cpp=$(OBJDIR)%.o)
 $1_LIBS:=$(call expand_libflags,$3)
 $(LIBDIR)$1: $$($1_OBJECTS)
 	@mkdir -p $(LIBDIR)

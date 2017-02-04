@@ -1,12 +1,21 @@
+PROJDIR = ../
 
-include ../defs.mk
+include $(PROJDIR)defs.mk
+include $(PROJDIR)functions.mk
+include $(PROJDIR)rules.mk
 
-.PHONY: all
+TARGET = example
 
-all: example
+LIBS = wayland-client++
 
-example: opengles.cpp
-	$(CXX) -o $@ $^ -I./ -I/usr/local/include $(CXXFLAGS)
+SRCS = \
+	   opengles.cpp
+
+
+$(eval $(call make_executable,$(TARGET),$(SRCS),$(LIBS)))
+
+$(eval $(call print_vars,ALL_TARGETS))
+
 
 
 

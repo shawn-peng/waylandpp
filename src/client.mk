@@ -1,5 +1,7 @@
-include $(PROJDIR)defs.mk
-include $(PROJDIR)functions.mk
+
+include ../defs.mk
+include ../functions.mk
+include ../rules.mk
 
 TARGET = libwayland-client++.so
 
@@ -7,7 +9,6 @@ LIBS = wayland-client
 
 SRCS = \
 	wayland-client.cpp \
-	wayland-client-protocol.cpp \
 	wayland-util.cpp
 
 
