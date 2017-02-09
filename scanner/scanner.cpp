@@ -15,6 +15,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <assert.h>
+
 #include <fstream>
 #include <iostream>
 #include <list>
@@ -101,6 +103,7 @@ struct argument_t : public element_t {
 };
 
 struct event_t : public element_t {
+	int opcode;
 	argument_t ret;
 	std::string name;
 	std::list<argument_t> args;
@@ -182,7 +185,7 @@ struct event_t : public element_t {
 		ss <<  "void ";
 		ss << interface_name << "_resource_t::send_" << name << "(";
 
-		bool new_id_arg = false;
+		// bool new_id_arg = false;
 		for (auto &arg : args) {
 			if (arg.type == "new_id") {
 				if (arg.interface == "") {
@@ -191,8 +194,8 @@ struct event_t : public element_t {
 					assert(0);
 				}
 			} else {
-				ss << arg.print_argument() << ", ";
 			}
+			ss << arg.print_argument() << ", ";
 		}
 
 		if (ss.str().substr(ss.str().size() - 2, 2) == ", ") {
@@ -202,26 +205,16 @@ struct event_t : public element_t {
 		ss.seekp(0, std::ios_base::end);
 		ss << ") {" << std::endl;
 
-		if (ret.name == "") {
-			ss << "    marshal(" << opcode << ", ";
-		} else {
-			ss << "    proxy_t p = marshal_constructor(" << opcode << ", ";
-			if (ret.interface == "") {
-				//ss << "    proxy_t p = marshal_constructor_dynamic(" << opcode << ", interface";
-				ss << "interface.get_iface_ptr()";
-			} else {
-				//ss << "    proxy_t p = marshal_constructor(" << opcode << ", ";
-				ss << "&" << ret.interface << "_interface";
-			}
-			ss << ", ";
-		}
+		ss << "post_event(" << opcode << ", ";
 
 		for (auto &arg : args) {
 			if (arg.type == "new_id") {
 				if (arg.interface == "") {
-					ss << "std::string(interface.get_iface_ptr()->name), version, ";
+					// ss << "std::string(interface.get_iface_ptr()->name), version, ";
+					assert(0);
 				}
-				ss << "NULL, ";
+				// ss << "NULL, ";
+				ss << "&" << arg.name + ", ";
 			} else if (arg.type == "object") {
 				ss << "&" << arg.name + ", ";
 			} else if (arg.enum_name != "") {
@@ -236,11 +229,12 @@ struct event_t : public element_t {
 		ss << ");" << std::endl;
 
 		if (ret.name != "") {
-			if (new_id_arg) {
-				ss << "    interface = interface.copy_constructor(p);" << std::endl
-				   << "    return interface;" << std::endl;
-			} else
-				ss << "    return " << ret.print_type() << "(p);" << std::endl;
+			assert(0);
+			// if (new_id_arg) {
+			// 	ss << "    interface = interface.copy_constructor(p);" << std::endl
+			// 	   << "    return interface;" << std::endl;
+			// } else
+			// 	ss << "    return " << ret.print_type() << "(p);" << std::endl;
 		}
 		ss << "}" << endl;
 		return ss.str();
@@ -289,7 +283,6 @@ struct event_t : public element_t {
 };
 
 struct request_t : public event_t {
-	int opcode;
 
 	std::string print_header() {
 		std::stringstream ss;
@@ -921,8 +914,9 @@ struct protocol_t : public element_t {
 				}
 
 				// destruction takes place through the class destuctor
-				if (req.name == "destroy")
+				if (req.name == "destroy") {
 					iface.destroy_opcode = req.opcode;
+				}
 				for (xml_node &argument : request.children("arg")) {
 					argument_t arg;
 					arg.type = argument.attribute("type").value();
@@ -964,8 +958,11 @@ struct protocol_t : public element_t {
 				iface.requests.push_back(req);
 			}
 
+			opcode = 0;
+
 			for (xml_node &event : interface.children("event")) {
 				event_t ev;
+				ev.opcode = opcode++;
 				ev.name = event.attribute("name").value();
 
 				if (event.attribute("since"))
