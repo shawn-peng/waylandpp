@@ -205,7 +205,7 @@ struct event_t : public element_t {
 		ss.seekp(0, std::ios_base::end);
 		ss << ") {" << std::endl;
 
-		ss << "post_event(" << opcode << ", ";
+		ss << "    post_event(" << opcode << ", ";
 
 		for (auto &arg : args) {
 			if (arg.type == "new_id") {
@@ -392,26 +392,27 @@ struct request_t : public event_t {
 
 	std::string print_handle_body(std::string interface_name) {
 		std::stringstream ss;
-		if (description != "") {
-			ss << "    /** \\brief " << summary << std::endl;
-			for (auto &arg : args) {
-				ss << "        \\param " << arg.name << " ";
-				if (arg.summary != "")
-					ss << arg.summary;
-				ss << std::endl;
-			}
-			ss << description << std::endl
-			   << "     */" << std::endl;
-		}
-		ss << "    std::function<void(";
+		// if (description != "") {
+		// 	ss << "/** \\brief " << summary << std::endl;
+		// 	for (auto &arg : args) {
+		// 		ss << "    \\param " << arg.name << " ";
+		// 		if (arg.summary != "")
+		// 			ss << arg.summary;
+		// 		ss << std::endl;
+		// 	}
+		// 	ss << description << std::endl
+		// 	   << " */" << std::endl;
+		// }
+		ss << "std::function<void(";
 		for (auto &arg : args)
 			ss << arg.print_type() + ", ";
 		if (args.size())
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
 		ss.seekp(0, std::ios_base::end);
-		ss << ")> &" << interface_name << "_resource_t::on_" <<  name << "() {" << std::endl
-		   << "        return std::static_pointer_cast<requests_t>(get_requests())->" + name + ";" << std::endl
-		   << "    }" << std::endl;
+		ss << ")> &" << endl
+		   << interface_name << "_resource_t::on_" <<  name << "() {" << std::endl
+		   << "    return std::static_pointer_cast<requests_t>(get_requests())->" + name + ";" << std::endl
+		   << "}" << std::endl;
 		return ss.str();
 	}
 
@@ -803,11 +804,11 @@ struct interface_t : public element_t {
 		std::stringstream ss;
 
 		if (stype == SERVER) {
+			for (auto &event : events) {
+				ss << event.print_body(name) << std::endl;
+			}
 			for (auto &request : requests) {
 				ss << request.print_handle_body(name) << std::endl;
-			}
-			for (auto &event : events) {
-				ss << event.print_signal_body(name) << std::endl;
 			}
 		} else if (stype == CLIENT) {
 			ss << client_class << "::" << client_class << "(const proxy_t &p)" << std::endl
