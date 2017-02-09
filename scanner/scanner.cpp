@@ -31,9 +31,9 @@ using namespace pugi;
 
 std::list<std::string> interface_names;
 
-enum header_t {
-	SERVER_HEADER = 1,
-	CLIENT_HEADER,
+enum source_t {
+	SERVER = 1,
+	CLIENT,
 };
 
 struct element_t {
@@ -51,7 +51,7 @@ struct argument_t : public element_t {
 
 	std::string print_type() {
 		if (interface != "")
-			return interface + "_t";
+			return interface + "_proxy_t";
 		else if (enum_iface != "")
 			return enum_iface + "_" + enum_name;
 		else if (type == "int")
@@ -121,21 +121,23 @@ struct event_t : public element_t {
 	std::string print_dispatcher(int opcode) {
 		std::stringstream ss;
 		ss << "    case " << opcode << ":" << std::endl
-		   << "      if(events->" << name << ") events->" << name << "(";
+		   << "        if(events->" << name << ") events->" << name << "(";
 
 		int c = 0;
 		for (auto &arg : args)
-			if (arg.enum_name != "")
+			if (arg.enum_name != "") {
 				ss << arg.print_type() << "(args[" << c++ << "].get<uint32_t>()), ";
-			else if (arg.interface != "")
+			} else if (arg.interface != "") {
 				ss << arg.print_type() << "(args[" << c++ << "].get<proxy_t>()), ";
-			else
+			} else {
 				ss << "args[" << c++ << "].get<" << arg.print_type() << ">(), ";
-		if (args.size())
+			}
+		if (args.size()) {
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		}
 		ss.seekp(0, std::ios_base::end);
 		ss << ");" << std::endl
-		   << "      break;";
+		   << "        break;";
 		return ss.str();
 	}
 
@@ -175,6 +177,75 @@ struct event_t : public element_t {
 		return ss.str();
 	}
 
+	std::string print_body(std::string interface_name) {
+		std::stringstream ss;
+		ss <<  "void ";
+		ss << interface_name << "_resource_t::send_" << name << "(";
+
+		bool new_id_arg = false;
+		for (auto &arg : args) {
+			if (arg.type == "new_id") {
+				if (arg.interface == "") {
+				// 	ss << "proxy_t &interface, uint32_t version, ";
+				// 	new_id_arg = true;
+					assert(0);
+				}
+			} else {
+				ss << arg.print_argument() << ", ";
+			}
+		}
+
+		if (ss.str().substr(ss.str().size() - 2, 2) == ", ") {
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		}
+
+		ss.seekp(0, std::ios_base::end);
+		ss << ") {" << std::endl;
+
+		if (ret.name == "") {
+			ss << "    marshal(" << opcode << ", ";
+		} else {
+			ss << "    proxy_t p = marshal_constructor(" << opcode << ", ";
+			if (ret.interface == "") {
+				//ss << "    proxy_t p = marshal_constructor_dynamic(" << opcode << ", interface";
+				ss << "interface.get_iface_ptr()";
+			} else {
+				//ss << "    proxy_t p = marshal_constructor(" << opcode << ", ";
+				ss << "&" << ret.interface << "_interface";
+			}
+			ss << ", ";
+		}
+
+		for (auto &arg : args) {
+			if (arg.type == "new_id") {
+				if (arg.interface == "") {
+					ss << "std::string(interface.get_iface_ptr()->name), version, ";
+				}
+				ss << "NULL, ";
+			} else if (arg.type == "object") {
+				ss << "&" << arg.name + ", ";
+			} else if (arg.enum_name != "") {
+				ss << "static_cast<uint32_t>(" << arg.name + "), ";
+			} else {
+				ss << arg.name + ", ";
+			}
+		}
+
+		ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ");" << std::endl;
+
+		if (ret.name != "") {
+			if (new_id_arg) {
+				ss << "    interface = interface.copy_constructor(p);" << std::endl
+				   << "    return interface;" << std::endl;
+			} else
+				ss << "    return " << ret.print_type() << "(p);" << std::endl;
+		}
+		ss << "}" << endl;
+		return ss.str();
+	}
+
 	std::string print_signal_header() {
 		std::stringstream ss;
 		if (description != "") {
@@ -194,24 +265,25 @@ struct event_t : public element_t {
 		if (args.size())
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
 		ss.seekp(0, std::ios_base::end);
-		ss << ")> &on_" <<  name << "() {" << std::endl
-		   << "        return std::static_pointer_cast<events_t>(get_events())->" + name + ";" << std::endl
-		   << "    }" << std::endl;
+		ss << ")> &on_" <<  name << "();" << std::endl;
+
 		return ss.str();
 	}
 
 	std::string print_signal_body(std::string interface_name) {
 		std::stringstream ss;
-		//ss << "std::function<void(";
-		//for (auto &arg : args)
-		//	ss << arg.print_type() << ", ";
-		//if (args.size())
-		//	ss.str(ss.str().substr(0, ss.str().size() - 2));
-		//ss.seekp(0, std::ios_base::end);
-		//ss << ")> &" + interface_name + "_t::on_" + name + "()" << std::endl
-		//   << "{" << std::endl
-		//   << "  return std::static_pointer_cast<events_t>(get_events())->" + name + ";" << std::endl
-		//   << "}" << std::endl;
+		ss << "std::function<void(";
+		for (auto &arg : args) {
+			ss << arg.print_type() << ", ";
+		}
+		if (args.size()) {
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		}
+		ss.seekp(0, std::ios_base::end);
+		ss << ")> &" << endl;
+	   	ss <<  interface_name + "_proxy_t::on_" + name + "() {" << std::endl
+		   << "    return std::static_pointer_cast<events_t>(get_events())->" + name + ";" << std::endl
+		   << "}" << std::endl;
 		return ss.str();
 	}
 };
@@ -242,88 +314,90 @@ struct request_t : public event_t {
 			   << "     */" << std::endl;
 		}
 
-		if (ret.name == "")
-			ss << "    void ";
-		else
-			ss << "    " << ret.print_type() << " ";
-		ss << name << "(";
-
-		bool new_id_arg = false;
-		for (auto &arg : args) {
-			if (arg.type == "new_id") {
-				if (arg.interface == "") {
-					ss << "proxy_t &interface, uint32_t version, ";
-					new_id_arg = true;
-				}
-			} else {
-				ss << arg.print_argument() << ", ";
-			}
-		}
-
-		if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
-			ss.str(ss.str().substr(0, ss.str().size() - 2));
-		ss.seekp(0, std::ios_base::end);
-		ss << ") {" << std::endl;
-
-		if (ret.name == "") {
-			ss << "        marshal(" << opcode << ", ";
-		} else {
-			ss << "        proxy_t p = marshal_constructor(" << opcode << ", ";
-			if (ret.interface == "")
-				ss << "interface.interface";
-			else
-				ss << "&" << ret.interface << "_interface";
-			ss << ", ";
-		}
-
-		for (auto &arg : args) {
-			if (arg.type == "new_id") {
-				if (arg.interface == "")
-					ss << "std::string(interface.interface->name), version, ";
-				ss << "NULL, ";
-			} else if (arg.enum_name != "")
-				ss << "static_cast<uint32_t>(" << arg.name + "), ";
-			else
-				ss << arg.name + ", ";
-		}
-
-		ss.str(ss.str().substr(0, ss.str().size() - 2));
-		ss.seekp(0, std::ios_base::end);
-		ss << ");" << std::endl;
-
-		if (ret.name != "") {
-			if (new_id_arg) {
-				ss << "        interface = interface.copy_constructor(p);" << std::endl
-				   << "        return interface;" << std::endl;
-			} else
-				ss << "        return " << ret.print_type() << "(p);" << std::endl;
-		}
-		ss << "    }" << std::endl;
-		return ss.str();
-
-		// ================================================================
-		// only declaration
+		// =================================================================
+		// with definitaion
 		// if (ret.name == "")
 		// 	ss << "    void ";
 		// else
 		// 	ss << "    " << ret.print_type() << " ";
 		// ss << name << "(";
 
-		// for (auto &arg : args)
+		// bool new_id_arg = false;
+		// for (auto &arg : args) {
 		// 	if (arg.type == "new_id") {
-		// 		if (arg.interface == "")
+		// 		if (arg.interface == "") {
 		// 			ss << "proxy_t &interface, uint32_t version, ";
-		// 	} else
+		// 			new_id_arg = true;
+		// 		}
+		// 	} else {
 		// 		ss << arg.print_argument() << ", ";
+		// 	}
+		// }
 
 		// if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
 		// 	ss.str(ss.str().substr(0, ss.str().size() - 2));
 		// ss.seekp(0, std::ios_base::end);
+		// ss << ") {" << std::endl;
+
+		// if (ret.name == "") {
+		// 	ss << "        marshal(" << opcode << ", ";
+		// } else {
+		// 	ss << "        proxy_t p = marshal_constructor(" << opcode << ", ";
+		// 	if (ret.interface == "")
+		// 		ss << "interface.interface";
+		// 	else
+		// 		ss << "&" << ret.interface << "_interface";
+		// 	ss << ", ";
+		// }
+
+		// for (auto &arg : args) {
+		// 	if (arg.type == "new_id") {
+		// 		if (arg.interface == "")
+		// 			ss << "std::string(interface.interface->name), version, ";
+		// 		ss << "NULL, ";
+		// 	} else if (arg.enum_name != "")
+		// 		ss << "static_cast<uint32_t>(" << arg.name + "), ";
+		// 	else
+		// 		ss << arg.name + ", ";
+		// }
+
+		// ss.str(ss.str().substr(0, ss.str().size() - 2));
+		// ss.seekp(0, std::ios_base::end);
 		// ss << ");" << std::endl;
-		// return ss.str();
+
+		// if (ret.name != "") {
+		// 	if (new_id_arg) {
+		// 		ss << "        interface = interface.copy_constructor(p);" << std::endl
+		// 		   << "        return interface;" << std::endl;
+		// 	} else
+		// 		ss << "        return " << ret.print_type() << "(p);" << std::endl;
+		// }
+		// ss << "    }" << std::endl;
+		//return ss.str();
+
+		// =================================================================
+		// only declaration
+		if (ret.name == "")
+			ss << "    void ";
+		else
+			ss << "    " << ret.print_type() << " ";
+		ss << name << "(";
+
+		for (auto &arg : args)
+			if (arg.type == "new_id") {
+				if (arg.interface == "")
+					ss << "proxy_t &interface, uint32_t version, ";
+			} else
+				ss << arg.print_argument() << ", ";
+
+		if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ");" << std::endl;
+		return ss.str();
 	}
 
-	std::string print_handle_header() {
+	std::string print_handle_body(std::string interface_name) {
 		std::stringstream ss;
 		if (description != "") {
 			ss << "    /** \\brief " << summary << std::endl;
@@ -342,7 +416,7 @@ struct request_t : public event_t {
 		if (args.size())
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
 		ss.seekp(0, std::ios_base::end);
-		ss << ")> &on_" <<  name << "() {" << std::endl
+		ss << ")> &" << interface_name << "_resource_t::on_" <<  name << "() {" << std::endl
 		   << "        return std::static_pointer_cast<requests_t>(get_requests())->" + name + ";" << std::endl
 		   << "    }" << std::endl;
 		return ss.str();
@@ -354,7 +428,7 @@ struct request_t : public event_t {
 			ss <<  "void ";
 		else
 			ss << ret.print_type() << " ";
-		ss << interface_name << "_t::" << name << "(";
+		ss << interface_name << "_proxy_t::" << name << "(";
 
 		bool new_id_arg = false;
 		for (auto &arg : args) {
@@ -368,31 +442,40 @@ struct request_t : public event_t {
 			}
 		}
 
-		if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
+		if (ss.str().substr(ss.str().size() - 2, 2) == ", ") {
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
-		ss.seekp(0, std::ios_base::end);
-		ss << ")\n{" << std::endl;
+		}
 
-		if (ret.name == "")
-			ss <<  "  marshal(" << opcode << ", ";
-		else {
-			ss << "  proxy_t p = marshal_constructor(" << opcode << ", ";
-			if (ret.interface == "")
-				ss << "interface.interface";
-			else
+		ss.seekp(0, std::ios_base::end);
+		ss << ") {" << std::endl;
+
+		if (ret.name == "") {
+			ss << "    marshal(" << opcode << ", ";
+		} else {
+			ss << "    proxy_t p = marshal_constructor(" << opcode << ", ";
+			if (ret.interface == "") {
+				//ss << "    proxy_t p = marshal_constructor_dynamic(" << opcode << ", interface";
+				ss << "interface.get_iface_ptr()";
+			} else {
+				//ss << "    proxy_t p = marshal_constructor(" << opcode << ", ";
 				ss << "&" << ret.interface << "_interface";
+			}
 			ss << ", ";
 		}
 
 		for (auto &arg : args) {
 			if (arg.type == "new_id") {
-				if (arg.interface == "")
-					ss << "std::string(interface.interface->name), version, ";
+				if (arg.interface == "") {
+					ss << "std::string(interface.get_iface_ptr()->name), version, ";
+				}
 				ss << "NULL, ";
-			} else if (arg.enum_name != "")
+			} else if (arg.type == "object") {
+				ss << "&" << arg.name + ", ";
+			} else if (arg.enum_name != "") {
 				ss << "static_cast<uint32_t>(" << arg.name + "), ";
-			else
+			} else {
 				ss << arg.name + ", ";
+			}
 		}
 
 		ss.str(ss.str().substr(0, ss.str().size() - 2));
@@ -401,12 +484,12 @@ struct request_t : public event_t {
 
 		if (ret.name != "") {
 			if (new_id_arg) {
-				ss << "  interface = interface.copy_constructor(p);" << std::endl
-				   << "  return interface;" << std::endl;
+				ss << "    interface = interface.copy_constructor(p);" << std::endl
+				   << "    return interface;" << std::endl;
 			} else
-				ss << "  return " << ret.print_type() << "(p);" << std::endl;
+				ss << "    return " << ret.print_type() << "(p);" << std::endl;
 		}
-		ss << "}";
+		ss << "}" << endl;
 		return ss.str();
 	}
 };
@@ -498,14 +581,14 @@ struct interface_t : public element_t {
 
 	//std::string proxyclass_name;
 
-	std::string print_forward(header_t htype) {
+	std::string print_forward(source_t stype) {
 		std::stringstream ss;
-		if (htype == SERVER_HEADER) {
+		if (stype == SERVER) {
 			ss << "class " << server_class << ";" << std::endl;
 			for (auto &e : enums) {
 				ss << e.print_forward(name);
 			}
-		} else if (htype == CLIENT_HEADER) {
+		} else if (stype == CLIENT) {
 			ss << "class " << client_class << ";" << std::endl;
 			for (auto &e : enums) {
 				ss << e.print_forward(name);
@@ -515,7 +598,7 @@ struct interface_t : public element_t {
 		return ss.str();
 	}
 
-	std::string print_header(header_t htype) {
+	std::string print_header(source_t stype) {
 		std::stringstream ss;
 		if (description != "") {
 			ss << "/** \\brief " << summary << std::endl
@@ -523,7 +606,7 @@ struct interface_t : public element_t {
 			   << " */" << std::endl;
 		}
 
-		if (htype == SERVER_HEADER) {
+		if (stype == SERVER) {
 			ss << "class " << server_class << " : public resource_t {" << std::endl
 				<< "private:" << std::endl
 				<< "    struct requests_t : public resource_t::requests_base_t {" << std::endl;
@@ -544,7 +627,7 @@ struct interface_t : public element_t {
 				<< std::endl;
 
 			for (auto &request : requests) {
-				ss << request.print_handle_header() << std::endl;
+				ss << request.print_handle_body(name) << std::endl;
 			}
 
 			for (auto &event : events) {
@@ -552,7 +635,7 @@ struct interface_t : public element_t {
 					ss << event.print_header() << std::endl;
 				}
 			}
-		} else if (htype == CLIENT_HEADER) {
+		} else if (stype == CLIENT) {
 			ss << "class " << client_class << " : public proxy_t {" << std::endl
 				<< "private:" << std::endl
 				<< "    struct events_t : public proxy_t::events_base_t {" << std::endl;
@@ -598,116 +681,187 @@ struct interface_t : public element_t {
 		return ss.str();
 	}
 
-	std::string print_body() {
+	// std::string print_body() {
+	// 	std::stringstream ss;
+	// 	ss << name << "_t::" << name << "_t(const proxy_t &p)" << std::endl
+	// 	   << "  : proxy_t(p) {" << std::endl
+	// 	   << "    set_events(std::shared_ptr<proxy_t::events_base_t>(new events_t), dispatcher);" << std::endl
+	// 	   << "    set_destroy_opcode(" << destroy_opcode << ");" << std::endl
+	// 	   << "    interface = &" << name << "_interface;" << std::endl
+	// 	   << "    copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
+	// 	   << "    { return " << name << "_t(p); };" << std::endl
+	// 	   << "}" << std::endl
+	// 	   << std::endl
+	// 	   << name << "_t::" << name << "_t() {" << std::endl
+	// 	   << "  interface = &" << name << "_interface;" << std::endl
+	// 	   << "  copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
+	// 	   << "    { return " << name << "_t(p); };" << std::endl
+	// 	   << "}" << std::endl
+	// 	   << std::endl;
+
+	// 	for (auto &request : requests)
+	// 		if (request.name != "destroy")
+	// 			ss << request.print_body(name) << std::endl
+	// 			   << std::endl;
+
+	// 	ss << "int " << name << "_t::dispatcher(int opcode, std::vector<any> args, std::shared_ptr<proxy_t::events_base_t> e)" << std::endl
+	// 	   << "{" << std::endl;
+
+	// 	if (events.size()) {
+	// 		ss << "  std::shared_ptr<events_t> events = std::static_pointer_cast<events_t>(e);" << std::endl
+	// 		   << "  switch(opcode)" << std::endl
+	// 		   << "    {" << std::endl;
+
+	// 		int opcode = 0;
+	// 		for (auto &event : events)
+	// 			ss << event.print_dispatcher(opcode++) << std::endl;
+
+	// 		ss << "    }" << std::endl;
+	// 	}
+
+	// 	ss << "  return 0;" << std::endl
+	// 	   << "}" << std::endl;
+
+	// 	for (auto &enumeration : enums)
+	// 		ss << enumeration.print_body(name) << std::endl;
+
+	// 	return ss.str();
+	// }
+
+	std::string print_common_defs() {
 		std::stringstream ss;
-		ss << name << "_t::" << name << "_t(const proxy_t &p)" << std::endl
-		   << "  : proxy_t(p) {" << std::endl
-		   << "    set_events(std::shared_ptr<proxy_t::events_base_t>(new events_t), dispatcher);" << std::endl
-		   << "    set_destroy_opcode(" << destroy_opcode << ");" << std::endl
-		   << "    interface = &" << name << "_interface;" << std::endl
-		   << "    copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
-		   << "    { return " << name << "_t(p); };" << std::endl
-		   << "}" << std::endl
-		   << std::endl
-		   << name << "_t::" << name << "_t() {" << std::endl
-		   << "  interface = &" << name << "_interface;" << std::endl
-		   << "  copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
-		   << "    { return " << name << "_t(p); };" << std::endl
-		   << "}" << std::endl
-		   << std::endl;
-
-		for (auto &request : requests)
-			if (request.name != "destroy")
-				ss << request.print_body(name) << std::endl
-				   << std::endl;
-
-		for (auto &event : events)
-			ss << event.print_signal_body(name) << std::endl;
-
-		ss << "int " << name << "_t::dispatcher(int opcode, std::vector<any> args, std::shared_ptr<proxy_t::events_base_t> e)" << std::endl
-		   << "{" << std::endl;
-
-		if (events.size()) {
-			ss << "  std::shared_ptr<events_t> events = std::static_pointer_cast<events_t>(e);" << std::endl
-			   << "  switch(opcode)" << std::endl
-			   << "    {" << std::endl;
-
-			int opcode = 0;
-			for (auto &event : events)
-				ss << event.print_dispatcher(opcode++) << std::endl;
-
-			ss << "    }" << std::endl;
-		}
-
-		ss << "  return 0;" << std::endl
-		   << "}" << std::endl;
-
-		for (auto &enumeration : enums)
-			ss << enumeration.print_body(name) << std::endl;
-
-		return ss.str();
-	}
-
-	std::string print_interface_body() {
-		std::stringstream ss;
-		ss << "const wl_interface wayland::detail::" << name << "_interface =" << std::endl
-		   << "  {" << std::endl
+		ss << "const wl_interface wayland::detail::" << name << "_interface = {" << std::endl
 		   << "    \"" << orig_name << "\"," << std::endl
 		   << "    " << version << "," << std::endl
 		   << "    " << requests.size() << "," << std::endl
 		   << "    (const wl_message[]) {" << std::endl;
 		for (auto &request : requests) {
-			ss << "      {" << std::endl
-			   << "        \"" << request.name << "\"," << std::endl
-			   << "        \"";
-			if (request.since > 1)
+			ss << "        {" << std::endl
+			   << "            \"" << request.name << "\"," << std::endl
+			   << "            \"";
+			if (request.since > 1) {
 				ss << request.since;
+			}
 			for (auto &arg : request.args) {
-				if (arg.allow_null)
+				if (arg.allow_null) {
 					ss << "?";
-				if (arg.type == "new_id" && arg.interface == "")
+				}
+				if (arg.type == "new_id" && arg.interface == "") {
 					ss << "su";
+				}
 				ss << arg.print_short();
 			}
 			ss << "\"," << std::endl
-			   << "        (const wl_interface*[]) {" << std::endl;
-			for (auto &arg : request.args)
-				if (arg.interface != "")
-					ss  << "          &" << arg.interface << "_interface," << std::endl;
-				else
-					ss  << "          NULL," << std::endl;
-			ss << "        }," << std::endl
-			   << "      }," << std::endl;
+			   << "            (const wl_interface*[]) {" << std::endl;
+			for (auto &arg : request.args) {
+				if (arg.interface != "") {
+					ss  << "                &" << arg.interface << "_interface," << std::endl;
+				} else {
+					ss  << "                NULL," << std::endl;
+				}
+			}
+			ss << "            }," << std::endl
+			   << "        }," << std::endl;
 		}
 		ss << "    }," << std::endl
 		   << "    " << events.size() << "," << std::endl
 		   << "    (const wl_message[]) {" << std::endl;
 		for (auto &event : events) {
-			ss << "      {" << std::endl
-			   << "        \"" << event.name << "\"," << std::endl
-			   << "        \"";
-			if (event.since > 1)
+			ss << "        {" << std::endl
+			   << "            \"" << event.name << "\"," << std::endl
+			   << "            \"";
+			if (event.since > 1) {
 				ss << event.since;
+			}
 			for (auto &arg : event.args) {
-				if (arg.allow_null)
+				if (arg.allow_null) {
 					ss << "?";
-				if (arg.type == "new_id" && arg.interface == "")
+				}
+				if (arg.type == "new_id" && arg.interface == "") {
 					ss << "su";
+				}
 				ss << arg.print_short();
 			}
 			ss << "\"," << std::endl
-			   << "        (const wl_interface*[]) {" << std::endl;
-			for (auto &arg : event.args)
-				if (arg.interface != "")
-					ss  << "          &" << arg.interface << "_interface," << std::endl;
-				else
-					ss  << "          NULL," << std::endl;
-			ss << "        }," << std::endl
-			   << "      }," << std::endl;
+			   << "            (const wl_interface*[]) {" << std::endl;
+			for (auto &arg : event.args) {
+				if (arg.interface != "") {
+					ss  << "                &" << arg.interface << "_interface," << std::endl;
+				} else {
+					ss  << "                NULL," << std::endl;
+				}
+			}
+			ss << "            }," << std::endl
+			   << "        }," << std::endl;
 		}
 		ss << "    }" << std::endl
-		   << "  };" << std::endl
+		   << "};" << std::endl
 		   << std::endl;
+
+		for (auto &enumeration : enums)
+			ss << enumeration.print_body(name) << std::endl;
+
+		ss << std::endl;
+
+		return ss.str();
+	}
+
+	std::string print_memdef(source_t stype) {
+		std::stringstream ss;
+
+		if (stype == SERVER) {
+			for (auto &request : requests) {
+				ss << request.print_handle_body(name) << std::endl;
+			}
+			for (auto &event : events) {
+				ss << event.print_signal_body(name) << std::endl;
+			}
+		} else if (stype == CLIENT) {
+			ss << client_class << "::" << client_class << "(const proxy_t &p)" << std::endl
+			   << "  : proxy_t(p) {" << std::endl
+			   << "    set_events(std::shared_ptr<proxy_t::events_base_t>(new events_t), dispatcher);" << std::endl
+			   << "    set_destroy_opcode(" << destroy_opcode << ");" << std::endl
+			   << "    interface = &" << name << "_interface;" << std::endl
+			   << "    copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
+			   << "    { return " << client_class << "(p); };" << std::endl
+			   << "}" << std::endl
+			   << std::endl
+			   << client_class << "::" << client_class << "() {" << std::endl
+			   << "  interface = &" << name << "_interface;" << std::endl
+			   << "  copy_constructor = [] (const proxy_t &p) -> proxy_t" << std::endl
+			   << "    { return " << client_class << "(p); };" << std::endl
+			   << "}" << std::endl
+			   << std::endl;
+
+			// dispatcher
+			ss << "int " << client_class << "::dispatcher(int opcode, std::vector<any> args, std::shared_ptr<proxy_t::events_base_t> e) {" << std::endl
+			   << std::endl;
+	
+			if (events.size()) {
+				ss << "    std::shared_ptr<events_t> events = std::static_pointer_cast<events_t>(e);" << std::endl
+				   << "    switch(opcode) {" << std::endl;
+	
+				int opcode = 0;
+				for (auto &event : events) {
+					ss << event.print_dispatcher(opcode++) << std::endl;
+				}
+	
+				ss << "    }" << std::endl;
+			}
+	
+			ss << "  return 0;" << std::endl
+			   << "}" << std::endl;
+
+			for (auto &request : requests) {
+				if (request.name != "destroy") {
+					ss << request.print_body(name) << std::endl;
+				}
+			}
+			for (auto &event : events) {
+				ss << event.print_signal_body(name) << std::endl;
+			}
+		}
+		ss << std::endl;
 
 		return ss.str();
 	}
@@ -715,7 +869,201 @@ struct interface_t : public element_t {
 
 struct protocol_t : public element_t {
 	std::string name;
-	std::list<interface_t> ifaces;
+	std::list<interface_t> interfaces;
+
+	protocol_t(const xml_node &protocol_node) {
+		name = protocol_node.attribute("name").value();
+
+		int enum_id = 0;
+
+		for (xml_node &interface : protocol_node.children("interface")) {
+			interface_t iface;
+			iface.destroy_opcode = -1;
+			iface.orig_name = interface.attribute("name").value();
+			if (iface.orig_name.substr(0, 3) == "wl_") {
+				iface.name = iface.orig_name.substr(3, iface.orig_name.size());
+			} else {
+				iface.name = iface.orig_name;
+			}
+			iface.client_class = iface.name + "_proxy_t";
+			iface.server_class = iface.name + "_resource_t";
+
+			if (interface.attribute("version")) {
+				std::string ver_str(interface.attribute("version").value());
+				iface.version = std::stoi(ver_str);
+			} else {
+				iface.version = 1;
+			}
+
+			if (interface.child("description")) {
+				xml_node description = interface.child("description");
+				iface.summary = description.attribute("summary").value();
+				iface.description = description.text().get();
+			}
+
+			interface_names.push_back(iface.name);
+
+			int opcode = 0; // Opcodes are in order of the XML. (Sadly undocumented)
+			for (xml_node &request : interface.children("request")) {
+				request_t req;
+				req.opcode = opcode++;
+				req.name = request.attribute("name").value();
+
+				if (request.attribute("since"))
+					req.since = std::stoi(std::string(request.attribute("since").value()));
+				else
+					req.since = 1;
+
+				if (request.child("description")) {
+					xml_node description = request.child("description");
+					req.summary = description.attribute("summary").value();
+					req.description = description.text().get();
+				}
+
+				// destruction takes place through the class destuctor
+				if (req.name == "destroy")
+					iface.destroy_opcode = req.opcode;
+				for (xml_node &argument : request.children("arg")) {
+					argument_t arg;
+					arg.type = argument.attribute("type").value();
+					arg.name = argument.attribute("name").value();
+					if (argument.child("description")) {
+						xml_node description = argument.child("description");
+						arg.summary = description.attribute("summary").value();
+						arg.description = description.text().get();
+					}
+
+					if (argument.attribute("interface")) {
+						arg.interface = argument.attribute("interface").value();
+						if (arg.interface.substr(0, 3) == "wl_")
+							arg.interface = arg.interface.substr(3, arg.interface.size());
+					}
+
+					if (argument.attribute("enum")) {
+						std::string tmp = argument.attribute("enum").value();
+						if (tmp.find('.') == std::string::npos) {
+							arg.enum_iface = iface.name;
+							arg.enum_name = tmp;
+						} else {
+							arg.enum_iface = tmp.substr(0, tmp.find('.'));
+							if (arg.enum_iface.substr(0, 3) == "wl_")
+								arg.enum_iface = arg.enum_iface.substr(3, arg.enum_iface.size());
+							arg.enum_name = tmp.substr(tmp.find('.') + 1);
+						}
+					}
+
+					if (argument.attribute("allow-null") && std::string(argument.attribute("allow-null").value()) == "true")
+						arg.allow_null = true;
+					else
+						arg.allow_null = false;
+
+					if (arg.type == "new_id")
+						req.ret = arg;
+					req.args.push_back(arg);
+				}
+				iface.requests.push_back(req);
+			}
+
+			for (xml_node &event : interface.children("event")) {
+				event_t ev;
+				ev.name = event.attribute("name").value();
+
+				if (event.attribute("since"))
+					ev.since = std::stoi(std::string(event.attribute("since").value()));
+				else
+					ev.since = 1;
+
+				if (event.child("description")) {
+					xml_node description = event.child("description");
+					ev.summary = description.attribute("summary").value();
+					ev.description = description.text().get();
+				}
+
+				for (xml_node &argument : event.children("arg")) {
+					argument_t arg;
+					arg.type = argument.attribute("type").value();
+					arg.name = argument.attribute("name").value();
+					if (argument.child("description")) {
+						xml_node description = argument.child("description");
+						arg.summary = description.attribute("summary").value();
+						arg.description = description.text().get();
+					}
+
+					if (argument.attribute("interface")) {
+						arg.interface = argument.attribute("interface").value();
+						if (arg.interface.substr(0, 3) == "wl_")
+							arg.interface = arg.interface.substr(3, arg.interface.size());
+					}
+
+					if (argument.attribute("enum")) {
+						std::string tmp = argument.attribute("enum").value();
+						if (tmp.find('.') == std::string::npos) {
+							arg.enum_iface = iface.name;
+							arg.enum_name = tmp;
+						} else {
+							arg.enum_iface = tmp.substr(0, tmp.find('.'));
+							if (arg.enum_iface.substr(0, 3) == "wl_")
+								arg.enum_iface = arg.enum_iface.substr(3, arg.enum_iface.size());
+							arg.enum_name = tmp.substr(tmp.find('.') + 1);
+						}
+					}
+
+					if (argument.attribute("allow-null") &&
+							std::string(argument.attribute("allow-null").value())
+							== "true")
+						arg.allow_null = true;
+					else
+						arg.allow_null = false;
+
+					ev.args.push_back(arg);
+				}
+				iface.events.push_back(ev);
+			}
+
+			for (xml_node &enumeration : interface.children("enum")) {
+				enumeration_t enu;
+				enu.name = enumeration.attribute("name").value();
+				if (enumeration.child("description")) {
+					xml_node description = enumeration.child("description");
+					enu.summary = description.attribute("summary").value();
+					enu.description = description.text().get();
+				}
+
+				if (enumeration.attribute("bitfield")) {
+					std::string tmp = enumeration.attribute("bitfield").value();
+					enu.bitfield = (tmp == "true");
+				} else
+					enu.bitfield = false;
+				enu.id = enum_id++;
+				enu.width = 0;
+
+				for (xml_node entry = enumeration.child("entry"); entry;
+						entry = entry.next_sibling("entry")) {
+					enum_entry_t enum_entry;
+					enum_entry.name = entry.attribute("name").value();
+					if (enum_entry.name == "default"
+							|| isdigit(enum_entry.name.at(0)))
+						enum_entry.name.insert(0, 1, '_');
+					enum_entry.value = entry.attribute("value").value();
+					if (entry.child("description")) {
+						xml_node description = entry.child("description");
+						enum_entry.summary = description.attribute("summary").value();
+						enum_entry.description = description.text().get();
+					}
+
+					uint32_t tmp = std::floor(std::log2(stol(enum_entry.value))) + 1;
+					if (tmp > enu.width) {
+						enu.width = tmp;
+					}
+
+					enu.entries.push_back(enum_entry);
+				}
+				iface.enums.push_back(enu);
+			}
+
+			interfaces.push_back(iface);
+		}
+	}
 };
 
 void gen_client_header(std::string filepath,
@@ -725,227 +1073,46 @@ void gen_client_header(std::string filepath,
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
 		std::cerr << "Usage:" << std::endl
-		          << "  " << argv[0] << " protocol.xml"
-				  " server_header.hpp client_header.hpp source.cpp"
+		          << "  " << argv[0] << " protocol.xml inc_dir src_dir"
+				  //" server_header.hpp client_header.hpp source.cpp"
 		          << std::endl;
 		return 1;
 	}
 
-	std::list<interface_t> interfaces;
-	int enum_id = 0;
-
 	xml_document doc;
 	doc.load_file(argv[1]);
 	xml_node protocol_node = doc.child("protocol");
-	std::string protocol_name = protocol_node.attribute("name").value();
+	protocol_t protocol(protocol_node);
 
-	for (xml_node &interface : protocol_node.children("interface")) {
-		interface_t iface;
-		iface.destroy_opcode = -1;
-		iface.orig_name = interface.attribute("name").value();
-		if (iface.orig_name.substr(0, 3) == "wl_") {
-			iface.name = iface.orig_name.substr(3, iface.orig_name.size());
-		} else {
-			iface.name = iface.orig_name;
-		}
-		iface.client_class = iface.name + "_proxy_t";
-		iface.server_class = iface.name + "_resource_t";
-
-		if (interface.attribute("version")) {
-			std::string ver_str(interface.attribute("version").value());
-			iface.version = std::stoi(ver_str);
-		} else {
-			iface.version = 1;
-		}
-
-		if (interface.child("description")) {
-			xml_node description = interface.child("description");
-			iface.summary = description.attribute("summary").value();
-			iface.description = description.text().get();
-		}
-
-		interface_names.push_back(iface.name);
-
-		int opcode = 0; // Opcodes are in order of the XML. (Sadly undocumented)
-		for (xml_node &request : interface.children("request")) {
-			request_t req;
-			req.opcode = opcode++;
-			req.name = request.attribute("name").value();
-
-			if (request.attribute("since"))
-				req.since = std::stoi(std::string(request.attribute("since").value()));
-			else
-				req.since = 1;
-
-			if (request.child("description")) {
-				xml_node description = request.child("description");
-				req.summary = description.attribute("summary").value();
-				req.description = description.text().get();
-			}
-
-			// destruction takes place through the class destuctor
-			if (req.name == "destroy")
-				iface.destroy_opcode = req.opcode;
-			for (xml_node &argument : request.children("arg")) {
-				argument_t arg;
-				arg.type = argument.attribute("type").value();
-				arg.name = argument.attribute("name").value();
-				if (argument.child("description")) {
-					xml_node description = argument.child("description");
-					arg.summary = description.attribute("summary").value();
-					arg.description = description.text().get();
-				}
-
-				if (argument.attribute("interface")) {
-					arg.interface = argument.attribute("interface").value();
-					if (arg.interface.substr(0, 3) == "wl_")
-						arg.interface = arg.interface.substr(3, arg.interface.size());
-				}
-
-				if (argument.attribute("enum")) {
-					std::string tmp = argument.attribute("enum").value();
-					if (tmp.find('.') == std::string::npos) {
-						arg.enum_iface = iface.name;
-						arg.enum_name = tmp;
-					} else {
-						arg.enum_iface = tmp.substr(0, tmp.find('.'));
-						if (arg.enum_iface.substr(0, 3) == "wl_")
-							arg.enum_iface = arg.enum_iface.substr(3, arg.enum_iface.size());
-						arg.enum_name = tmp.substr(tmp.find('.') + 1);
-					}
-				}
-
-				if (argument.attribute("allow-null") && std::string(argument.attribute("allow-null").value()) == "true")
-					arg.allow_null = true;
-				else
-					arg.allow_null = false;
-
-				if (arg.type == "new_id")
-					req.ret = arg;
-				req.args.push_back(arg);
-			}
-			iface.requests.push_back(req);
-		}
-
-		for (xml_node &event : interface.children("event")) {
-			event_t ev;
-			ev.name = event.attribute("name").value();
-
-			if (event.attribute("since"))
-				ev.since = std::stoi(std::string(event.attribute("since").value()));
-			else
-				ev.since = 1;
-
-			if (event.child("description")) {
-				xml_node description = event.child("description");
-				ev.summary = description.attribute("summary").value();
-				ev.description = description.text().get();
-			}
-
-			for (xml_node &argument : event.children("arg")) {
-				argument_t arg;
-				arg.type = argument.attribute("type").value();
-				arg.name = argument.attribute("name").value();
-				if (argument.child("description")) {
-					xml_node description = argument.child("description");
-					arg.summary = description.attribute("summary").value();
-					arg.description = description.text().get();
-				}
-
-				if (argument.attribute("interface")) {
-					arg.interface = argument.attribute("interface").value();
-					if (arg.interface.substr(0, 3) == "wl_")
-						arg.interface = arg.interface.substr(3, arg.interface.size());
-				}
-
-				if (argument.attribute("enum")) {
-					std::string tmp = argument.attribute("enum").value();
-					if (tmp.find('.') == std::string::npos) {
-						arg.enum_iface = iface.name;
-						arg.enum_name = tmp;
-					} else {
-						arg.enum_iface = tmp.substr(0, tmp.find('.'));
-						if (arg.enum_iface.substr(0, 3) == "wl_")
-							arg.enum_iface = arg.enum_iface.substr(3, arg.enum_iface.size());
-						arg.enum_name = tmp.substr(tmp.find('.') + 1);
-					}
-				}
-
-				if (argument.attribute("allow-null") &&
-						std::string(argument.attribute("allow-null").value())
-						== "true")
-					arg.allow_null = true;
-				else
-					arg.allow_null = false;
-
-				ev.args.push_back(arg);
-			}
-			iface.events.push_back(ev);
-		}
-
-		for (xml_node &enumeration : interface.children("enum")) {
-			enumeration_t enu;
-			enu.name = enumeration.attribute("name").value();
-			if (enumeration.child("description")) {
-				xml_node description = enumeration.child("description");
-				enu.summary = description.attribute("summary").value();
-				enu.description = description.text().get();
-			}
-
-			if (enumeration.attribute("bitfield")) {
-				std::string tmp = enumeration.attribute("bitfield").value();
-				enu.bitfield = (tmp == "true");
-			} else
-				enu.bitfield = false;
-			enu.id = enum_id++;
-			enu.width = 0;
-
-			for (xml_node entry = enumeration.child("entry"); entry;
-			        entry = entry.next_sibling("entry")) {
-				enum_entry_t enum_entry;
-				enum_entry.name = entry.attribute("name").value();
-				if (enum_entry.name == "default"
-				        || isdigit(enum_entry.name.at(0)))
-					enum_entry.name.insert(0, 1, '_');
-				enum_entry.value = entry.attribute("value").value();
-				if (entry.child("description")) {
-					xml_node description = entry.child("description");
-					enum_entry.summary = description.attribute("summary").value();
-					enum_entry.description = description.text().get();
-				}
-
-				uint32_t tmp = std::floor(std::log2(stol(enum_entry.value))) + 1;
-				if (tmp > enu.width) {
-					enu.width = tmp;
-				}
-
-				enu.entries.push_back(enum_entry);
-			}
-			iface.enums.push_back(enu);
-		}
-
-		interfaces.push_back(iface);
-	}
+	std::list<interface_t> &interfaces = protocol.interfaces;
 
 	// filenames
 	//std::string ext_name(argv[2]);
-	//std::string server_header_filename = ext_name + "-server-protocol.hpp";
-	//std::string client_header_filename = ext_name + "-client-protocol.hpp";
-	//std::string source_filename = ext_name + "-protocol.cpp";
-	std::string server_header_filename(argv[2]);
-	std::string client_header_filename(argv[3]);
-	std::string source_filename(argv[4]);
+	std::string inc_dir(argv[2]);
+	std::string src_dir(argv[3]);
+	std::string server_header_filename = inc_dir + "/" + protocol.name + "-server-protocol.hpp";
+	std::string client_header_filename = inc_dir + "/" + protocol.name + "-client-protocol.hpp";
+	std::string server_source_filename = src_dir + "/" + protocol.name + "-server-protocol.cpp";
+	std::string client_source_filename = src_dir + "/" + protocol.name + "-client-protocol.cpp";
+	std::string common_source_filename = src_dir + "/" + protocol.name + "-protocol.cpp";
+	//std::string server_header_filename(argv[2]);
+	//std::string client_header_filename(argv[3]);
+	//std::string source_filename(argv[4]);
 
 	std::fstream wayland_server_hpp(server_header_filename,
 	                                std::ios_base::out | std::ios_base::trunc);
 	std::fstream wayland_client_hpp(client_header_filename,
 	                                std::ios_base::out | std::ios_base::trunc);
-	std::fstream wayland_cpp(source_filename,
+	std::fstream wayland_server_cpp(server_source_filename,
+	                         std::ios_base::out | std::ios_base::trunc);
+	std::fstream wayland_client_cpp(client_source_filename,
+	                         std::ios_base::out | std::ios_base::trunc);
+	std::fstream wayland_cpp(common_source_filename,
 	                         std::ios_base::out | std::ios_base::trunc);
 
 	// header vars
-	std::string server_header_guard = protocol_name + "_SERVER_PROTOCOL_HPP";
-	std::string client_header_guard = protocol_name + "_CLIENT_PROTOCOL_HPP";
+	std::string server_header_guard = protocol.name + "_SERVER_PROTOCOL_HPP";
+	std::string client_header_guard = protocol.name + "_CLIENT_PROTOCOL_HPP";
 	for (auto & c : server_header_guard) c = toupper(c);
 	for (auto & c : client_header_guard) c = toupper(c);
 
@@ -960,6 +1127,7 @@ int main(int argc, char *argv[]) {
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-client-core.hpp>" << std::endl
 	                   << std::endl
 	                   //<< "#include <wayland-client.hpp>" << std::endl
 	                   << std::endl
@@ -968,7 +1136,7 @@ int main(int argc, char *argv[]) {
 
 	// forward declarations
 	for (auto &iface : interfaces) {
-		wayland_client_hpp << iface.print_forward(CLIENT_HEADER);
+		wayland_client_hpp << iface.print_forward(CLIENT);
 	}
 	wayland_client_hpp << std::endl;
 
@@ -982,8 +1150,9 @@ int main(int argc, char *argv[]) {
 
 	// class declarations
 	for (auto &iface : interfaces) {
-		wayland_client_hpp << iface.print_header(CLIENT_HEADER) << std::endl;
+		wayland_client_hpp << iface.print_header(CLIENT) << std::endl;
 	}
+
 	wayland_client_hpp << std::endl
 	                   << "}" << std::endl
 	                   << std::endl
@@ -1000,6 +1169,7 @@ int main(int argc, char *argv[]) {
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-server-core.hpp>" << std::endl
 	                   << std::endl
 	                   << std::endl
 	                   << "namespace wayland {" << std::endl
@@ -1007,7 +1177,7 @@ int main(int argc, char *argv[]) {
 
 	// forward declarations
 	for (auto &iface : interfaces) {
-		wayland_server_hpp << iface.print_forward(SERVER_HEADER);
+		wayland_server_hpp << iface.print_forward(SERVER);
 	}
 	wayland_server_hpp << std::endl;
 
@@ -1021,14 +1191,62 @@ int main(int argc, char *argv[]) {
 
 	// class declarations
 	for (auto &iface : interfaces) {
-		wayland_server_hpp << iface.print_header(SERVER_HEADER) << std::endl;
+		wayland_server_hpp << iface.print_header(SERVER) << std::endl;
 	}
+
 	wayland_server_hpp << std::endl
 	                   << "}" << std::endl
 	                   << std::endl
 	                   << "#endif" << std::endl;
 
 	// source file
+	
+	// server source
+	wayland_server_cpp << "#include <array>" << std::endl
+	                   << "#include <functional>" << std::endl
+	                   << "#include <memory>" << std::endl
+	                   << "#include <string>" << std::endl
+	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-server-protocol.hpp>" << std::endl
+	                   << std::endl
+	                   << std::endl
+	                   << "namespace wayland {" << std::endl
+	                   << std::endl
+					   << "using namespace detail;" << std::endl
+	                   << std::endl;
+
+	// class member function definitions
+	for (auto &iface : interfaces) {
+		wayland_server_cpp << iface.print_memdef(SERVER) << std::endl;
+	}
+
+	wayland_server_cpp << std::endl
+	                   << "}" << std::endl
+	                   << std::endl;
+
+	// client source
+	
+	wayland_client_cpp << "#include <array>" << std::endl
+	                   << "#include <functional>" << std::endl
+	                   << "#include <memory>" << std::endl
+	                   << "#include <string>" << std::endl
+	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-client-protocol.hpp>" << std::endl
+	                   << std::endl
+	                   << std::endl
+	                   << "namespace wayland {" << std::endl
+	                   << std::endl
+					   << "using namespace detail;" << std::endl
+	                   << std::endl;
+
+	// class member function definitions
+	for (auto &iface : interfaces) {
+		wayland_client_cpp << iface.print_memdef(CLIENT) << std::endl;
+	}
+
+	wayland_client_cpp << std::endl
+	                   << "}" << std::endl
+	                   << std::endl;
 
 	// source intro
 	wayland_cpp << "#include <wayland-client-protocol.hpp>" << std::endl
@@ -1039,17 +1257,19 @@ int main(int argc, char *argv[]) {
 
 	// interface bodys
 	for (auto &iface : interfaces)
-		wayland_cpp << iface.print_interface_body();
+		wayland_cpp << iface.print_common_defs();
 
 	// class member definitions
-	for (auto &iface : interfaces)
-		if (iface.name != "display")
-			wayland_cpp << iface.print_body() << std::endl;
-	wayland_cpp << std::endl;
+	//for (auto &iface : interfaces)
+	//	if (iface.name != "display")
+	//		wayland_cpp << iface.print_body() << std::endl;
+	//wayland_cpp << std::endl;
 
 	// clean up
 	wayland_client_hpp.close();
 	wayland_server_hpp.close();
+	wayland_client_cpp.close();
+	wayland_server_cpp.close();
 	wayland_cpp.close();
 
 	return 0;

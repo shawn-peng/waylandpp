@@ -23,7 +23,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <wayland-client.hpp>
+#include <stdexcept>
 #include <wayland-util.hpp>
 
 using namespace wayland;
@@ -84,8 +84,9 @@ argument_t::argument_t(std::string s) {
 	is_array = false;
 }
 
-argument_t::argument_t(proxy_t p) {
-	argument.o = reinterpret_cast<wl_object*>(p.proxy);
+argument_t::argument_t(object_t *p) {
+	//argument.o = reinterpret_cast<wl_object*>(p->proxy);
+	argument.o = p->object;
 	is_array = false;
 }
 

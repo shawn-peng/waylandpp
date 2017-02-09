@@ -3,15 +3,12 @@ include ../defs.mk
 include ../functions.mk
 include ../rules.mk
 
-TARGET = libwayland-client++.so
+TARGET = libwayland-egl++.so
 
-LIBS = wayland-client
+LIBS = wayland-client++
 
 SRCS = \
-	wayland-client.cpp \
-	wayland-client-protocol.cpp \
-	wayland-protocol.cpp \
-	wayland-util.cpp
+	wayland-egl.cpp
 
 
 $(eval $(call make_sharedlib,$(TARGET),$(SRCS),$(LIBS)))

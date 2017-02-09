@@ -45,7 +45,7 @@ class cursor_image_t {
 	uint32_t hotspot_x();
 	uint32_t hotspot_y();
 	uint32_t delay();
-	buffer_t get_buffer();
+	buffer_proxy_t get_buffer();
 };
 
 class cursor_t {
@@ -73,7 +73,7 @@ class cursor_theme_t {
 
   public:
 	cursor_theme_t();
-	cursor_theme_t(std::string name, int size, shm_t shm);
+	cursor_theme_t(std::string name, int size, shm_proxy_t shm);
 	cursor_t get_cursor(std::string name);
 };
 }

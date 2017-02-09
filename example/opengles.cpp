@@ -51,22 +51,22 @@ class example {
   private:
 	// global objects
 	display_t display;
-	registry_t registry;
-	compositor_t compositor;
-	shell_t shell;
-	seat_t seat;
-	shm_t shm;
+	registry_proxy_t registry;
+	compositor_proxy_t compositor;
+	shell_proxy_t shell;
+	seat_proxy_t seat;
+	shm_proxy_t shm;
 
 	// local objects
-	surface_t surface;
-	shell_surface_t shell_surface;
-	pointer_t pointer;
-	keyboard_t keyboard;
-	callback_t frame_cb;
+	surface_proxy_t surface;
+	shell_surface_proxy_t shell_surface;
+	pointer_proxy_t pointer;
+	keyboard_proxy_t keyboard;
+	callback_proxy_t frame_cb;
 	cursor_theme_t cursor_theme;
 	cursor_image_t cursor_image;
-	buffer_t cursor_buffer;
-	surface_t cursor_surface;
+	buffer_proxy_t cursor_buffer;
+	surface_proxy_t cursor_surface;
 
 	// EGL
 	egl_window_t egl_window;
@@ -234,7 +234,7 @@ class example {
 		cursor_surface = compositor.create_surface();
 
 		// draw cursor
-		pointer.on_enter() = [&](uint32_t serial, surface_t, int32_t, int32_t) {
+		pointer.on_enter() = [&](uint32_t serial, surface_proxy_t, int32_t, int32_t) {
 			cursor_surface.attach(cursor_buffer, 0, 0);
 			cursor_surface.damage(0, 0, cursor_image.width(), cursor_image.height());
 			cursor_surface.commit();

@@ -25,11 +25,11 @@
 
 #include <utility>
 #include <wayland-egl.hpp>
-#include <wayland-client-protocol.hpp>
+#include <wayland-client.hpp>
 
 using namespace wayland;
 
-egl_window_t::egl_window_t(surface_t &surface, int width, int height) {
+egl_window_t::egl_window_t(surface_proxy_t &surface, int width, int height) {
 	window = wl_egl_window_create(reinterpret_cast<wl_surface*>(surface.c_ptr()), width, height);
 }
 

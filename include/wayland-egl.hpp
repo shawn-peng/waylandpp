@@ -32,7 +32,7 @@
 namespace wayland {
 class egl_window_t;
 class display_t;
-class surface_t;
+class surface_proxy_t;
 }
 
 // C++ Overrides for EGL functions that depend on native types
@@ -61,7 +61,7 @@ class egl_window_t {
 	    \param width Width of the EGL buffer
 	    \param height height of the EGL buffer
 	*/
-	egl_window_t(surface_t &surface, int width, int height);
+	egl_window_t(surface_proxy_t &surface, int width, int height);
 	~egl_window_t();
 
 	egl_window_t();

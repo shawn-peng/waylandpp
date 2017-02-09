@@ -31,6 +31,8 @@
 #include <utility>
 #include <vector>
 #include <list>
+#include <string>
+#include <wayland-util.h>
 
 using namespace std;
 
@@ -40,7 +42,7 @@ using namespace std;
 		(pos)++)
 
 namespace wayland {
-class proxy_t;
+//class proxy_t;
 
 class array_t;
 
@@ -183,6 +185,17 @@ class bitfield {
 	}
 };
 
+class object_t {
+  private:
+	wl_object *object;
+
+	friend class argument_t;
+
+  public:
+	object_t(wl_object *obj) : object(obj) { }
+	object_t &operator =(const object_t &o) { object = o.object; }
+};
+
 class argument_t {
   private:
 	bool is_array;
@@ -203,7 +216,7 @@ class argument_t {
 	argument_t(std::string s);
 
 	// handles objects
-	argument_t(proxy_t p);
+	argument_t(object_t *p);
 
 	// handles arrays
 	argument_t(array_t a);

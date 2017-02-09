@@ -34,7 +34,7 @@ cursor_theme_t::cursor_theme_ptr::~cursor_theme_ptr() {
 cursor_theme_t::cursor_theme_t() {
 }
 
-cursor_theme_t::cursor_theme_t(std::string name, int size, shm_t shm)
+cursor_theme_t::cursor_theme_t(std::string name, int size, shm_proxy_t shm)
 	: cursor_theme(new cursor_theme_ptr( {
 	wl_cursor_theme_load(name == "" ? NULL : name.c_str(),
 	                     size, reinterpret_cast<wl_shm*>(shm.c_ptr()))
@@ -104,10 +104,10 @@ uint32_t cursor_image_t::delay() {
 	return cursor_image->delay;
 }
 
-buffer_t cursor_image_t::get_buffer() {
+buffer_proxy_t cursor_image_t::get_buffer() {
 	wl_buffer *buffer = wl_cursor_image_get_buffer(cursor_image);
 	wl_proxy *proxy = reinterpret_cast<wl_proxy*>(buffer);
 	wl_proxy_set_user_data(proxy, NULL);
 	// buffer will be destroyed when cursor_theme is destroyed
-	return buffer_t(proxy_t(proxy, false, true));
+	return buffer_proxy_t(proxy_t(proxy, false, true));
 }

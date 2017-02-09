@@ -25,7 +25,7 @@
 
 #include <iostream>
 #include <wayland-client.hpp>
-#include <wayland-client-protocol.hpp>
+//#include <wayland-client-protocol.hpp>
 
 using namespace wayland;
 using namespace wayland::detail;
@@ -44,6 +44,14 @@ wl_event_queue *event_queue_t::c_ptr() {
 		throw std::invalid_argument("event_queue is NULL");
 	return queue->queue;
 };
+
+proxy_t::proxy_data_t::proxy_data_t() : events(NULL) {
+}
+
+proxy_t::proxy_data_t::proxy_data_t(std::shared_ptr<events_base_t> ev,
+		int desop, unsigned int cnt)
+	: events(ev), destroy_opcode(desop), counter(cnt) {
+}
 
 int proxy_t::c_dispatcher(const void *implementation, void *target, uint32_t opcode, const wl_message *message, wl_argument *args) {
 	if(!implementation)
@@ -135,11 +143,27 @@ proxy_t proxy_t::marshal_single(uint32_t opcode, const wl_interface *interface, 
 	return proxy_t();
 }
 
-void proxy_t::set_destroy_opcode(int destroy_opcode) {
-	if(!display)
-		data->opcode = destroy_opcode;
-	else
-		std::cerr << "Not setting destroy opcode on display.";
+proxy_t proxy_t::marshal_single(uint32_t opcode, const wl_interface *interface, std::list<argument_t> args) {
+	std::vector<wl_argument> v;
+	for(auto &arg : args)
+		v.push_back(arg.argument);
+	if(interface) {
+		wl_proxy *p = wl_proxy_marshal_array_constructor(proxy, opcode, v.data(), interface);
+		if(!p)
+			throw std::runtime_error("wl_proxy_marshal_array_constructor");
+		wl_proxy_set_user_data(p, NULL); // Wayland leaves the user data uninitialized
+		return proxy_t(p);
+	}
+	wl_proxy_marshal_array(proxy, opcode, v.data());
+	return proxy_t();
+}
+
+void proxy_t::set_destroy_opcode(int opcode) {
+	if(!display) {
+		data->destroy_opcode = opcode;
+	} else {
+		std::cerr << "Not setting destroy opcode on display." << endl;
+	}
 }
 
 void proxy_t::set_events(std::shared_ptr<events_base_t> events,
@@ -160,11 +184,11 @@ std::shared_ptr<proxy_t::events_base_t> proxy_t::get_events() {
 }
 
 proxy_t::proxy_t()
-	: proxy(NULL), data(NULL), display(false), interface(NULL) {
+	: object_t(NULL), proxy(NULL), data(NULL), display(false), interface(NULL) {
 }
 
 proxy_t::proxy_t(wl_proxy *p, bool is_display, bool donotdestroy)
-	: proxy(p), data(NULL), display(is_display), dontdestroy(donotdestroy), interface(NULL) {
+	: object_t((wl_object *)p), proxy(p), data(NULL), display(is_display), dontdestroy(donotdestroy), interface(NULL) {
 	if(!display) {
 		data = reinterpret_cast<proxy_data_t*>(wl_proxy_get_user_data(c_ptr()));
 		if(!data) {
@@ -175,11 +199,14 @@ proxy_t::proxy_t(wl_proxy *p, bool is_display, bool donotdestroy)
 	}
 }
 
-proxy_t::proxy_t(const proxy_t &p) {
+proxy_t::proxy_t(const proxy_t &p) : object_t(p) {
 	operator=(p);
 }
 
 proxy_t &proxy_t::operator=(const proxy_t& p) {
+	//object_t::operator=(object_t((wl_object *)p.proxy));
+	//object_t::operator=((wl_object *)p.proxy);
+	object_t::operator=(p);
 	proxy = p.proxy;
 	data = p.data;
 	interface = p.interface;
@@ -198,11 +225,12 @@ proxy_t &proxy_t::operator=(const proxy_t& p) {
 }
 
 proxy_t::proxy_t(proxy_t &&p)
-	: proxy(NULL), data(NULL), display(false), dontdestroy(false), interface(NULL) {
+	: /*object_t(std::move(p))*/object_t(NULL), proxy(NULL), data(NULL), display(false), dontdestroy(false), interface(NULL) {
 	operator=(std::move(p));
 }
 
 proxy_t &proxy_t::operator=(proxy_t &&p) {
+	object_t::operator=(std::move(p));
 	std::swap(proxy, p.proxy);
 	std::swap(data, p.data);
 	std::swap(display, p.display);
@@ -217,8 +245,9 @@ proxy_t::~proxy_t() {
 		data->counter--;
 		if(data->counter == 0) {
 			if(!dontdestroy) {
-				if(data->opcode >= 0)
-					wl_proxy_marshal(proxy, data->opcode);
+				if(data->destroy_opcode >= 0) {
+					wl_proxy_marshal(proxy, data->destroy_opcode);
+				}
 				wl_proxy_destroy(proxy);
 			}
 			delete data;
@@ -244,14 +273,20 @@ wl_proxy *proxy_t::c_ptr() {
 	return proxy;
 }
 
+const wl_interface *proxy_t::get_iface_ptr() {
+	if(!interface)
+		throw std::invalid_argument("interface is NULL");
+	return interface;
+}
+
 display_t::display_t(int fd)
-	: proxy_t(reinterpret_cast<wl_proxy*>(wl_display_connect_to_fd(fd)), true) {
+	: display_proxy_t(proxy_t(reinterpret_cast<wl_proxy*>(wl_display_connect_to_fd(fd)), true)) {
 	c_ptr(); // throws if NULL
 	interface = &display_interface;
 }
 
 display_t::display_t(std::string name)
-	: proxy_t(reinterpret_cast<wl_proxy*>(wl_display_connect(name == "" ? NULL : name.c_str())), true) {
+	: display_proxy_t(proxy_t(reinterpret_cast<wl_proxy*>(wl_display_connect(name == "" ? NULL : name.c_str())), true)) {
 	c_ptr(); // throws if NULL
 	interface = &display_interface;
 }
@@ -329,10 +364,10 @@ int display_t::flush() {
 	return wl_display_flush(reinterpret_cast<wl_display*>(c_ptr()));
 }
 
-callback_t display_t::sync() {
-	return callback_t(marshal_constructor(0, &callback_interface, NULL));
-}
-
-registry_t display_t::get_registry() {
-	return registry_t(marshal_constructor(1, &registry_interface, NULL));
-}
+// callback_t display_t::sync() {
+// 	return callback_t(marshal_constructor(0, &callback_interface, NULL));
+// }
+// 
+// registry_t display_t::get_registry() {
+// 	return registry_t(marshal_constructor(1, &registry_interface, NULL));
+// }
