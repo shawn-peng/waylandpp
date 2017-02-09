@@ -8,6 +8,8 @@
 scanner/scanner
 wayland-server-protocol.hpp
 wayland-client-protocol.hpp
+wayland-server-protocol.cpp
+wayland-client-protocol.cpp
 wayland-protocol.cpp
 example/opengles
 example/shm
