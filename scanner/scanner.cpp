@@ -51,10 +51,14 @@ struct argument_t : public element_t {
 	std::string enum_name;
 	bool allow_null;
 
-	std::string print_type() {
-		if (interface != "")
-			return interface + "_proxy_t";
-		else if (enum_iface != "")
+	std::string print_type(source_t st) {
+		if (interface != "") {
+			if (st == SERVER) {
+				return interface + "_resource_t";
+			} else if (st == CLIENT) {
+				return interface + "_proxy_t";
+			}
+		} else if (enum_iface != "")
 			return enum_iface + "_" + enum_name;
 		else if (type == "int")
 			return "int32_t";
@@ -64,11 +68,19 @@ struct argument_t : public element_t {
 			return "int32_t";
 		else if (type == "string")
 			return "std::string";
-		else if (type == "object")
-			return "proxy_t";
-		else if (type == "new_id")
-			return "proxy_t";
-		else if (type == "fd")
+		else if (type == "object") {
+			if (st == SERVER) {
+				return "resource_t";
+			} else if (st == CLIENT) {
+				return "proxy_t";
+			}
+		} else if (type == "new_id") {
+			if (st == SERVER) {
+				return "resource_t";
+			} else if (st == CLIENT) {
+				return "proxy_t";
+			}
+		} else if (type == "fd")
 			return "int";
 		else if (type == "array")
 			return "array_t";
@@ -97,8 +109,8 @@ struct argument_t : public element_t {
 			return "x";
 	}
 
-	std::string print_argument() {
-		return print_type() + " " + name;
+	std::string print_argument(source_t st) {
+		return print_type(st) + " " + name;
 	}
 };
 
@@ -113,7 +125,7 @@ struct event_t : public element_t {
 		std::stringstream ss;
 		ss << "        std::function<void(";
 		for (auto &arg : args)
-			ss << arg.print_type() << ", ";
+			ss << arg.print_type(CLIENT) << ", ";
 		if (args.size())
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
 		ss.seekp(0, std::ios_base::end);
@@ -129,11 +141,11 @@ struct event_t : public element_t {
 		int c = 0;
 		for (auto &arg : args)
 			if (arg.enum_name != "") {
-				ss << arg.print_type() << "(args[" << c++ << "].get<uint32_t>()), ";
+				ss << arg.print_type(CLIENT) << "(args[" << c++ << "].get<uint32_t>()), ";
 			} else if (arg.interface != "") {
-				ss << arg.print_type() << "(args[" << c++ << "].get<proxy_t>()), ";
+				ss << arg.print_type(CLIENT) << "(args[" << c++ << "].get<proxy_t>()), ";
 			} else {
-				ss << "args[" << c++ << "].get<" << arg.print_type() << ">(), ";
+				ss << "args[" << c++ << "].get<" << arg.print_type(CLIENT) << ">(), ";
 			}
 		if (args.size()) {
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
@@ -166,15 +178,21 @@ struct event_t : public element_t {
 
 		ss << "    void send_" << name << "(";
 
-		for (auto &arg : args)
+		for (auto &arg : args) {
 			if (arg.type == "new_id") {
-				if (arg.interface == "")
-					ss << "proxy_t &interface, uint32_t version, ";
-			} else
-				ss << arg.print_argument() << ", ";
+				if (arg.interface == "") {
+				// 	ss << "proxy_t &interface, uint32_t version, ";
+				// 	new_id_arg = true;
+					assert(0);
+				}
+			} else {
+			}
+			ss << arg.print_argument(SERVER) << ", ";
+		}
 
-		if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
+		if (ss.str().substr(ss.str().size() - 2, 2) == ", ") {
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		}
 		ss.seekp(0, std::ios_base::end);
 		ss << ");" << std::endl;
 		return ss.str();
@@ -195,7 +213,7 @@ struct event_t : public element_t {
 				}
 			} else {
 			}
-			ss << arg.print_argument() << ", ";
+			ss << arg.print_argument(SERVER) << ", ";
 		}
 
 		if (ss.str().substr(ss.str().size() - 2, 2) == ", ") {
@@ -255,7 +273,7 @@ struct event_t : public element_t {
 		}
 		ss << "    std::function<void(";
 		for (auto &arg : args)
-			ss << arg.print_type() + ", ";
+			ss << arg.print_type(CLIENT) + ", ";
 		if (args.size())
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
 		ss.seekp(0, std::ios_base::end);
@@ -268,7 +286,7 @@ struct event_t : public element_t {
 		std::stringstream ss;
 		ss << "std::function<void(";
 		for (auto &arg : args) {
-			ss << arg.print_type() << ", ";
+			ss << arg.print_type(CLIENT) << ", ";
 		}
 		if (args.size()) {
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
@@ -283,6 +301,42 @@ struct event_t : public element_t {
 };
 
 struct request_t : public event_t {
+
+	std::string print_functional() {
+		std::stringstream ss;
+		ss << "        std::function<void(";
+		for (auto &arg : args) {
+			ss << arg.print_type(SERVER) << ", ";
+		}
+		if (args.size())
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ")> " << name << ";";
+		return ss.str();
+	}
+
+	std::string print_dispatcher(int opcode) {
+		std::stringstream ss;
+		ss << "    case " << opcode << ":" << std::endl
+		   << "        if(events->" << name << ") events->" << name << "(";
+
+		int c = 0;
+		for (auto &arg : args)
+			if (arg.enum_name != "") {
+				ss << arg.print_type(SERVER) << "(args[" << c++ << "].get<uint32_t>()), ";
+			} else if (arg.interface != "") {
+				ss << arg.print_type(SERVER) << "(args[" << c++ << "].get<proxy_t>()), ";
+			} else {
+				ss << "args[" << c++ << "].get<" << arg.print_type(SERVER) << ">(), ";
+			}
+		if (args.size()) {
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		}
+		ss.seekp(0, std::ios_base::end);
+		ss << ");" << std::endl
+		   << "        break;";
+		return ss.str();
+	}
 
 	std::string print_header() {
 		std::stringstream ss;
@@ -373,7 +427,7 @@ struct request_t : public event_t {
 		if (ret.name == "")
 			ss << "    void ";
 		else
-			ss << "    " << ret.print_type() << " ";
+			ss << "    " << ret.print_type(CLIENT) << " ";
 		ss << name << "(";
 
 		for (auto &arg : args)
@@ -381,12 +435,37 @@ struct request_t : public event_t {
 				if (arg.interface == "")
 					ss << "proxy_t &interface, uint32_t version, ";
 			} else
-				ss << arg.print_argument() << ", ";
+				ss << arg.print_argument(CLIENT) << ", ";
 
 		if (ss.str().substr(ss.str().size() - 2, 2) == ", ")
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
 		ss.seekp(0, std::ios_base::end);
 		ss << ");" << std::endl;
+		return ss.str();
+	}
+
+	std::string print_handle_header() {
+		std::stringstream ss;
+		if (description != "") {
+			ss << "    /** \\brief " << summary << std::endl;
+			for (auto &arg : args) {
+				ss << "        \\param " << arg.name << " ";
+				if (arg.summary != "")
+					ss << arg.summary;
+				ss << std::endl;
+			}
+			ss << description << std::endl
+			   << "     */" << std::endl;
+		}
+		ss << "    std::function<void(";
+		for (auto &arg : args) {
+			ss << arg.print_type(SERVER) + ", ";
+		}
+		if (args.size())
+			ss.str(ss.str().substr(0, ss.str().size() - 2));
+		ss.seekp(0, std::ios_base::end);
+		ss << ")> &on_" <<  name << "();" << std::endl;
+
 		return ss.str();
 	}
 
@@ -405,7 +484,7 @@ struct request_t : public event_t {
 		// }
 		ss << "std::function<void(";
 		for (auto &arg : args)
-			ss << arg.print_type() + ", ";
+			ss << arg.print_type(SERVER) + ", ";
 		if (args.size())
 			ss.str(ss.str().substr(0, ss.str().size() - 2));
 		ss.seekp(0, std::ios_base::end);
@@ -421,7 +500,7 @@ struct request_t : public event_t {
 		if (ret.name == "")
 			ss <<  "void ";
 		else
-			ss << ret.print_type() << " ";
+			ss << ret.print_type(CLIENT) << " ";
 		ss << interface_name << "_proxy_t::" << name << "(";
 
 		bool new_id_arg = false;
@@ -432,7 +511,7 @@ struct request_t : public event_t {
 					new_id_arg = true;
 				}
 			} else {
-				ss << arg.print_argument() << ", ";
+				ss << arg.print_argument(CLIENT) << ", ";
 			}
 		}
 
@@ -481,7 +560,7 @@ struct request_t : public event_t {
 				ss << "    interface = interface.copy_constructor(p);" << std::endl
 				   << "    return interface;" << std::endl;
 			} else
-				ss << "    return " << ret.print_type() << "(p);" << std::endl;
+				ss << "    return " << ret.print_type(CLIENT) << "(p);" << std::endl;
 		}
 		ss << "}" << endl;
 		return ss.str();
@@ -621,7 +700,7 @@ struct interface_t : public element_t {
 				<< std::endl;
 
 			for (auto &request : requests) {
-				ss << request.print_handle_body(name) << std::endl;
+				ss << request.print_handle_header() << std::endl;
 			}
 
 			for (auto &event : events) {

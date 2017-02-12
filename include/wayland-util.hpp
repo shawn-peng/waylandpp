@@ -231,6 +231,7 @@ class array_t {
 	void get(wl_array *arr);
 
 	friend class proxy_t;
+	friend class resource_t;
 	friend class detail::argument_t;
 
   public:

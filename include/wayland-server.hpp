@@ -31,24 +31,29 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <wayland-server.h>
 #include <wayland-server-core.h>
 #include <EGL/egl.h>
 #include <wayland-egl.hpp>
 #include <wayland-util.hpp>
 
+#include <wayland-server-protocol.hpp>
+
 namespace wayland {
+
 /** \brief display class
 
-*/
-class display_t {
+ */
+class display_t : public display_resource_t {
 private:
 	wl_display *display;
 
 public:
 	display_t();
 };
+
 }
 
-#include <wayland-server-protocol.hpp>
+//#include <wayland-server-protocol.hpp>
 
 #endif

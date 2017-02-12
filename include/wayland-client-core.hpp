@@ -78,13 +78,13 @@ class display_t;
 */
 class proxy_t : public detail::object_t {
 
+	// Types
   protected:
 	// base class for event listener storage.
 	struct events_base_t {
 		virtual ~events_base_t() { }
 	};
 
-	// Types
   private:
 	// stored in the proxy user data
 	struct proxy_data_t {
@@ -95,6 +95,7 @@ class proxy_t : public detail::object_t {
 		proxy_data_t();
 		proxy_data_t(std::shared_ptr<events_base_t> ev, int desop, unsigned int cnt);
 	};
+	typedef int(*dispatcher_func)(int, std::vector<detail::any>, std::shared_ptr<proxy_t::events_base_t>);
 
 
 	// Member vars
