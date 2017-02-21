@@ -1,22 +1,14 @@
-PROJDIR = ../
 
-include $(PROJDIR)defs.mk
-include $(PROJDIR)functions.mk
-include $(PROJDIR)rules.mk
+.PHONY: all
 
-TARGET = example
+TARGETS = opengles compositor
 
-LIBS = wayland-client++ wayland-egl++ wayland-cursor++
+.PHONY: $(TARGETS)
 
-SRCS = \
-	   opengles.cpp
+all: $(TARGETS)
 
-
-$(eval $(call make_executable,$(TARGET),$(SRCS),$(LIBS)))
-
-$(eval $(call print_vars,ALL_TARGETS))
-
-
+$(TARGETS):
+	make -f $@.mk
 
 
 

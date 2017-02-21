@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2016-2017, Yisu Peng
- * Copyright (c) 2014-2016, Nils Christopher Brause
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,19 +23,50 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <assert.h>
+
 #include <iostream>
+#include <wayland-server.h>
 #include <wayland-server.hpp>
 //#include <wayland-server-protocol.hpp>
 
 using namespace wayland;
 using namespace wayland::detail;
 
-display_t::display_t() {
+display_t::display_t(std::string name) {
+	//: display_resource_t(
+	//		resource_t(
+	//			reinterpret_cast<wl_resource*>(wl_display_create()),
+	//			true)) {
 	display = wl_display_create();
+	if (name == "") {
+		wl_display_add_socket(display, NULL);
+	} else {
+		wl_display_add_socket(display, name.c_str());
+	}
 }
 
-void global_bind(wl_client *client, void *data, uint32_t version, uint32_t id) {
+wl_display *display_t::c_ptr() {
+	return display;
 }
+
+void display_t::run() {
+	wl_display_run(display);
+}
+
+int display_t::init_shm() {
+	return wl_display_init_shm(display);
+}
+
+client_t::client_t(wl_client *c) : client(c) {
+}
+
+wl_client *client_t::c_ptr() {
+	return client;
+}
+
+// void global_bind(wl_client *client, void *data, uint32_t version, uint32_t id) {
+// }
 
 
 // event_queue_t::queue_ptr::~queue_ptr() {
@@ -113,21 +143,29 @@ resource_t &resource_t::operator=(resource_t &&p) {
 
 resource_t::~resource_t() {
 	if(resource && !display) {
-		data->counter--;
-		if(data->counter == 0) {
-			if(!dontdestroy) {
-				//if(data->destroy_opcode >= 0) {
-				//	wl_resource_marshal(resource, data->destroy_opcode);
-				//}
-				wl_resource_destroy(resource);
-			}
-			delete data;
-		}
+		// data->counter--;
+		// if(data->counter == 0) {
+		// 	if(!dontdestroy) {
+		// 		//if(data->destroy_opcode >= 0) {
+		// 		//	wl_resource_marshal(resource, data->destroy_opcode);
+		// 		//}
+		// 		wl_resource_destroy(resource);
+		// 	}
+		// 	delete data;
+		// }
 	}
 }
 
 uint32_t resource_t::get_id() {
 	return wl_resource_get_id(c_ptr());
+}
+
+client_t resource_t::get_client() {
+	return client_t(wl_resource_get_client(resource));
+}
+
+uint32_t resource_t::get_version() {
+	return wl_resource_get_version(c_ptr());
 }
 
 std::string resource_t::get_class() {
@@ -138,18 +176,35 @@ std::string resource_t::get_class() {
 //	wl_resource_set_queue(c_ptr(), queue.c_ptr());
 //}
 
+void resource_t::set_user_data(user_data_t *user_data) {
+	if (data == NULL) {
+		assert(0);
+	} else {
+		data->user_data = user_data;
+	}
+}
+
+resource_t::user_data_t *resource_t::get_user_data() {
+	if (data == NULL) {
+		return NULL;
+	} else {
+		return data->user_data;
+	}
+}
+
 wl_resource *resource_t::c_ptr() {
 	if(!resource)
 		throw std::invalid_argument("resource is NULL");
 	return resource;
 }
 
-resource_t::resource_data_t::resource_data_t() : requests(NULL) {
+resource_t::resource_data_t::resource_data_t()
+	: requests(NULL), user_data(NULL) {
 }
 
 resource_t::resource_data_t::resource_data_t(std::shared_ptr<requests_base_t> ev,
 		unsigned int cnt)
-	: requests(ev), counter(cnt) {
+	: requests(ev), counter(cnt), user_data(NULL) {
 }
 
 
@@ -174,8 +229,12 @@ int resource_t::c_dispatcher(const void *implementation, void *target, uint32_t 
 
 	std::string signature(message->signature);
 	std::vector<any> vargs;
+	resource_t res(reinterpret_cast<wl_resource*>(target), false);
+	client_t client = res.get_client();
 	unsigned int c = 0;
 	for(char ch : signature) {
+	//for (int i = 0; i < signature.size(); i++) {
+	//	auto ch = signature[i];
 		if(ch == '?' || isdigit(ch))
 			continue;
 
@@ -207,16 +266,20 @@ int resource_t::c_dispatcher(const void *implementation, void *target, uint32_t 
 				break;
 			// new id
 			case 'n': {
-				if(args[c].o) {
-					wl_resource *resource = reinterpret_cast<wl_resource*>(args[c].o);
-					wl_resource_set_user_data(resource, NULL); // Wayland leaves the user data uninitialized
-					a = resource_t(resource);
-				} else {
+				//wl_resource *resource = reinterpret_cast<wl_resource*>(args[c].o);
+				int id = args[c].u;
+				if(id == 0) {
 					a = resource_t();
 					std::cerr << "New id is empty." << std::endl;
+					return 1;
 				}
+				//wl_resource *resource = wl_client_get_object(client.c_ptr(), id);
+				const interface_t *iface = message->types[c];
+				wl_resource *resource = wl_resource_create(client.c_ptr(), iface, res.get_version(), id);
+				wl_resource_set_user_data(resource, NULL); // Wayland leaves the user data uninitialized
+				a = resource_t(resource);
+				break;
 			}
-			break;
 			// array
 			case 'a':
 				if(args[c].a)
@@ -231,7 +294,6 @@ int resource_t::c_dispatcher(const void *implementation, void *target, uint32_t 
 		vargs.push_back(a);
 		c++;
 	}
-	resource_t res(reinterpret_cast<wl_resource*>(target), false);
 	dispatcher_func dispatcher = reinterpret_cast<dispatcher_func>(const_cast<void*>(implementation));
 	return dispatcher(opcode, vargs, res.get_requests());
 }
@@ -239,6 +301,104 @@ int resource_t::c_dispatcher(const void *implementation, void *target, uint32_t 
 void resource_t::c_destroy(wl_resource *resource) {
 }
 
+void resource_t::marshal_vector(int opcode, std::vector<argument_t> args) {
+	std::vector<wl_argument> v;
+	for(auto &arg : args) {
+		v.push_back(arg.argument);
+	}
+
+	wl_resource_post_event_array(resource, opcode, v.data());
+	return;
+}
+
+std::shared_ptr<resource_t::requests_base_t> resource_t::get_requests() {
+	if(!display)
+		return data->requests;
+	return std::shared_ptr<requests_base_t>();
+}
+
+resource_t *resource_t::create(client_t &&client, const interface_t &interface,
+		uint32_t version, uint32_t id) {
+	return new resource_t(wl_resource_create(client.c_ptr(), const_cast<wl_interface *>(&interface), version, id));
+}
+
+
+global_t::global_t(display_t &display,
+		const interface_t &iface,
+		uint32_t version,
+		//void *data,
+		global_t *data,
+		resource_bind_func_t bind_func) :
+	interface(const_cast<interface_t *>(&iface)),
+	user_data(data)/*, bind(bind_func)*/ {
+	global = wl_global_create(display.c_ptr(), interface, version, reinterpret_cast<void*>(data), c_bind);
+	//global = wl_global_create(display.c_ptr(), interface, version, data, c_bind);
+}
+
+global_t::~global_t() {
+}
+
+void global_t::bind(resource_t res, void *data) {
+	cout << "Calling base bind method. Do nothing." << endl;
+}
+
+void global_t::c_bind(struct wl_client *client, void *data,
+		uint32_t version, uint32_t id) {
+	global_t *g = reinterpret_cast<global_t *>(data);
+	//g = g->user_data;
+
+	wl_resource *r = wl_resource_create(client, g->interface, version, id);
+	if (r == NULL) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+	
+	//(*g->bind)(g->user_data);
+	//resource_t res(r);
+	g->bind(resource_t(r), g->user_data);
+}
+
+
+
+//listener_t::listener_t() : callback(NULL) {
+//}
+
+listener_t::listener_t(notify_func_t func) : callback(func) {
+	listener.notify = c_notify;
+}
+
+void listener_t::notify(void *data) {
+	(*callback)(this, data);
+}
+
+wl_listener *listener_t::c_ptr() {
+	return &listener;
+}
+
+listener_t &listener_t::get_object(void *obj) {
+	return *static_cast<listener_t *>(obj);
+}
+
+void listener_t::c_notify(wl_listener *p, void *data) {
+	get_object(p).notify(data);
+}
+
+
+signal_t::signal_t() {
+	wl_signal_init(&signal);
+}
+
+void signal_t::add(listener_t &listener) {
+	wl_signal_add(&signal, listener.c_ptr());
+}
+
+//listener_t &signal_t::get(notify_func_t cb_func) {
+//	return listener_t::get_object(wl_signal_get(&signal, cb_func));
+//}
+
+void signal_t::emit(void *data) {
+	wl_signal_emit(&signal, data);
+}
 
 
 

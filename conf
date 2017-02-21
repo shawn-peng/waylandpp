@@ -1,0 +1,9 @@
+#!/bin/bash
+
+WESTON_LIB="/home/shawn/singularity-workspace/weston/install/lib/"
+
+export LD_LIBRARY_PATH
+LD_LIBRARY_PATH+="`pwd`/build/lib;${WESTON_LIB};${WESTON_LIB}/libweston-2/"
+export WAYLAND_DISPLAY="waylandpp-example"
+#export WAYLAND_DISPLAY="wayland-0"
+

@@ -274,6 +274,9 @@ class array_t {
 		return v;
 	}
 };
+
+typedef wl_interface interface_t;
+
 }
 
 #endif

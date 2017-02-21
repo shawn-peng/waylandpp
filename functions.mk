@@ -13,6 +13,7 @@ define make_executable
 ALL_TARGETS=$(ALL_TARGETS) $(BINDIR)$1
 $1_SOURCES:=$$(abspath $2)
 $1_OBJECTS:=$$($1_SOURCES:$(PROJDIR)%.cpp=$(OBJDIR)%.o)
+$1_OBJECTS:=$$($1_OBJECTS:$(PROJDIR)%.c=$(OBJDIR)%.o)
 $1_LIBS:=$(call expand_libflags,$3)
 $(BINDIR)$1: $$($1_OBJECTS)
 	@mkdir -p $(BINDIR)
@@ -24,6 +25,7 @@ define make_sharedlib
 ALL_TARGETS=$(ALL_TARGETS) $(LIBDIR)lib$1
 $1_SOURCES:=$$(abspath $2)
 $1_OBJECTS:=$$($1_SOURCES:$(PROJDIR)%.cpp=$(OBJDIR)%.o)
+$1_OBJECTS:=$$($1_OBJECTS:$(PROJDIR)%.c=$(OBJDIR)%.o)
 $1_LIBS:=$(call expand_libflags,$3)
 $(LIBDIR)$1: $$($1_OBJECTS)
 	@mkdir -p $(LIBDIR)

@@ -3,7 +3,7 @@ include ../defs.mk
 include ../functions.mk
 include ../rules.mk
 
-TARGET = server
+TARGET = libwayland-server++.so
 
 LIBS = wayland-server
 

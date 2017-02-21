@@ -39,6 +39,22 @@ namespace wayland {
 
 class resource_t;
 
+/** \brief display class
+
+ */
+class display_t {
+private:
+	wl_display *display;
+
+public:
+	display_t(std::string name = "");
+
+	wl_display *c_ptr();
+	void run();
+
+	int init_shm();
+};
+
 /** \brief reference to the client
 
  */
@@ -47,6 +63,7 @@ private:
 	wl_client *client;
 public:
 	client_t(int fd);
+	client_t(wl_client *c);
 	void flush();
 	//void get_credentials(pid_t *pid, uid_t uid, gid_t gid);
 	//int get_fd();
@@ -54,6 +71,7 @@ public:
 	//listener_t get_destroy_listener(notify_func_t notify);
 	resource_t get_object(uint32_t id);
 	//void 
+	wl_client *c_ptr();
 	
 };
 
@@ -68,10 +86,15 @@ protected:
 	};
 	typedef int(*dispatcher_func)(int, std::vector<detail::any>, std::shared_ptr<resource_t::requests_base_t>);
 
+	struct user_data_t {
+		virtual ~user_data_t() { }
+	};
+
 private:
 	struct resource_data_t {
 		std::shared_ptr<requests_base_t> requests;
 		unsigned int counter;
+		user_data_t *user_data;
 
 		resource_data_t();
 		resource_data_t(std::shared_ptr<requests_base_t> ev, unsigned int cnt);
@@ -146,12 +169,22 @@ protected:
 public:
 	/** \brief Get the id of a resource object.
 	    \return The id the object associated with the resource
-	*/
+	 */
 	uint32_t get_id();
+
+	/** \brief Get the client
+		\return The pointer to the client
+	 */
+	client_t get_client();
+
+	/** \brief Get the version
+		\return version
+	 */
+	uint32_t get_version();
 
 	/** \brief Get the interface name (class) of a resource object.
 	    \return The interface name of the object associated with the resource
-	*/
+	 */
 	std::string get_class();
 
 	// /** \brief Assign a resource to an event queue.
@@ -169,6 +202,14 @@ public:
 
 	const wl_interface *get_iface_ptr();
 
+	//void bind();
+
+	void set_user_data(user_data_t *data);
+	user_data_t *get_user_data();
+
+	static resource_t *create(client_t &&client, const interface_t &interface,
+			uint32_t version, uint32_t id);
+
 protected:
 
 	/*
@@ -185,9 +226,7 @@ protected:
 	template <typename...T>
 	void post_event(int opcode, T...args);
 
-
-public:
-
+	void marshal_vector(int opcode, std::vector<detail::argument_t> args);
 
 private:
 	static int c_dispatcher(const void *implementation, void *target,
@@ -196,19 +235,81 @@ private:
 	static void c_destroy(wl_resource *resource);
 };
 
+
+typedef void (*resource_bind_func_t)(void *data);//, uint32_t version, uint32_t id);
+//typedef void (resource_t::*resource_bind_func_t)();//, uint32_t version, uint32_t id);
+
 class global_t {
-// public:
+public:
+	struct global_data_t {
+		global_data_t();
+	};
 // 	// bind func type
 // 	typedef 
 private:
 	wl_global *global;
+	interface_t *interface;
+	void *user_data;
+	//resource_bind_func_t bind;
+
 public:
-	global_t();
+	global_t(display_t &display, const interface_t &iface,
+			uint32_t version, global_t *data,//void *data,
+			resource_bind_func_t bind_func);
 
 	virtual ~global_t();
 
-	virtual void bind(client_t c, void *data);
+	virtual void bind(resource_t res, void *data);
+
+protected:
+	static void c_bind(struct wl_client *client, void *data,
+			uint32_t version, uint32_t id);
+
 };
+
+
+class listener_t;
+typedef void (*notify_func_t)(listener_t *, void *);
+
+class listener_t {
+private:
+	wl_listener listener;
+	notify_func_t callback;
+
+
+public:
+	listener_t(notify_func_t func);
+	listener_t(const listener_t &o);
+
+protected:
+	listener_t();
+
+
+public:
+	void notify(void *data);
+	wl_listener *c_ptr();
+
+	static listener_t &get_object(void *obj);
+
+protected:
+	static void c_notify(wl_listener *p, void *data);
+};
+
+
+
+class signal_t {
+private:
+	wl_signal signal;
+
+public:
+	signal_t();
+	// signal_t(const signal_t &o);
+
+	void add(listener_t &listener);
+	//listener_t &get(notify_func_t cb_func);
+	void emit(void *data);
+};
+
 
 ///** \brief contains a reference to the client and the resource
 //
@@ -218,6 +319,17 @@ public:
 //	client_t client;
 //	resource_t res;
 //};
+
+
+// Implementations
+template <typename...T>
+void resource_t::post_event(int opcode, T...args) {
+	std::vector<detail::argument_t> v = { detail::argument_t(args)... };
+	if (c_ptr()) {
+		marshal_vector(opcode, v);
+	}
+}
+
 
 }
 

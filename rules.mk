@@ -5,3 +5,8 @@ $(OBJDIR)%.o: $(PROJDIR)%.cpp
 	$(CXX) -c $< $(CXXFLAGS) -o $@
 
 
+$(OBJDIR)%.o: $(PROJDIR)%.c
+	mkdir -p $(dir $@)
+	$(CXX) -c $< $(CXXFLAGS) -o $@
+
+

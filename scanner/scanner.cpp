@@ -318,14 +318,14 @@ struct request_t : public event_t {
 	std::string print_dispatcher(int opcode) {
 		std::stringstream ss;
 		ss << "    case " << opcode << ":" << std::endl
-		   << "        if(events->" << name << ") events->" << name << "(";
+		   << "        if(requests->" << name << ") requests->" << name << "(";
 
 		int c = 0;
 		for (auto &arg : args)
 			if (arg.enum_name != "") {
 				ss << arg.print_type(SERVER) << "(args[" << c++ << "].get<uint32_t>()), ";
 			} else if (arg.interface != "") {
-				ss << arg.print_type(SERVER) << "(args[" << c++ << "].get<proxy_t>()), ";
+				ss << arg.print_type(SERVER) << "(args[" << c++ << "].get<resource_t>()), ";
 			} else {
 				ss << "args[" << c++ << "].get<" << arg.print_type(SERVER) << ">(), ";
 			}
@@ -697,6 +697,8 @@ struct interface_t : public element_t {
 			ss << "public:" << std::endl
 				<< "    " << server_class << "();" << std::endl
 				<< "    explicit " << server_class << "(const resource_t &resource);" << std::endl
+				<< std::endl
+				<< "    void bind();" << std::endl
 				<< std::endl;
 
 			for (auto &request : requests) {
@@ -883,6 +885,48 @@ struct interface_t : public element_t {
 		std::stringstream ss;
 
 		if (stype == SERVER) {
+			// constructor
+			ss << server_class << "::" << server_class << "(const resource_t &p)" << std::endl
+			   << "  : resource_t(p) {" << std::endl
+			   //<< "    set_requests(std::shared_ptr<resource_t::requests_base_t>(new requests_t), dispatcher);" << std::endl
+			   << "    bind();" << std::endl
+			   << "    interface = &" << name << "_interface;" << std::endl
+			   << "    copy_constructor = [] (const resource_t &p) -> resource_t" << std::endl
+			   << "    { return " << server_class << "(p); };" << std::endl
+			   << "}" << std::endl
+			   << std::endl
+			   << server_class << "::" << server_class << "() {" << std::endl
+			   << "  interface = &" << name << "_interface;" << std::endl
+			   << "  copy_constructor = [] (const resource_t &p) -> resource_t" << std::endl
+			   << "    { return " << server_class << "(p); };" << std::endl
+			   << "}" << std::endl
+			   << std::endl;
+
+			// bind
+			ss << "void " << server_class << "::bind() {" << std::endl
+			   << "    set_requests(std::shared_ptr<resource_t::requests_base_t>(new requests_t), dispatcher);" << std::endl
+			   << "}" << std::endl
+			   << std::endl;
+
+			// dispatcher
+			ss << "int " << server_class << "::dispatcher(int opcode, std::vector<any> args, std::shared_ptr<resource_t::requests_base_t> e) {" << std::endl
+			   << std::endl;
+	
+			if (requests.size()) {
+				ss << "    std::shared_ptr<requests_t> requests = std::static_pointer_cast<requests_t>(e);" << std::endl
+				   << "    switch(opcode) {" << std::endl;
+	
+				int opcode = 0;
+				for (auto &request : requests) {
+					ss << request.print_dispatcher(opcode++) << std::endl;
+				}
+	
+				ss << "    }" << std::endl;
+			}
+	
+			ss << "    return 0;" << std::endl
+			   << "}" << std::endl;
+
 			for (auto &event : events) {
 				ss << event.print_body(name) << std::endl;
 			}
@@ -1284,6 +1328,7 @@ int main(int argc, char *argv[]) {
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-server-core.hpp>" << std::endl
 	                   << "#include <wayland-server-protocol.hpp>" << std::endl
 	                   << std::endl
 	                   << std::endl
@@ -1308,6 +1353,7 @@ int main(int argc, char *argv[]) {
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-client-core.hpp>" << std::endl
 	                   << "#include <wayland-client-protocol.hpp>" << std::endl
 	                   << std::endl
 	                   << std::endl

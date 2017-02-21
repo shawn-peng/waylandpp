@@ -10,16 +10,19 @@ SRCDIR=$(PROJDIR)src/
 
 OPTS= -fpermissive -std=c++11 -fPIC -g
 
-INCLUDES= -I/usr/local/include/ -I$(INCDIR)
+WESTON_PREFIX=/home/shawn/singularity-workspace/weston/install/
 
-LIBPATHS= -L/usr/local/lib -L$(LIBDIR)
+INCLUDES= -I$(WESTON_PREFIX)include/ -I$(WESTON_PREFIX)include/libweston-2/ -I/usr/local/include/ -I/usr/include/pixman-1/ -I/usr/include/libdrm/ -I$(INCDIR)
+
+LIBPATHS= -L$(WESTON_PREFIX)lib/ -L/usr/local/lib -L$(LIBDIR)
 
 COMMONLIBS= -lm -lwayland-egl -lEGL -lGL -lwld -lswc
 #LIBS= -lm -lwayland-client -lwayland-server -lwayland-egl -lwayland-cursor -lEGL -lGL -lwld -lswc
 
-MACROS=
+MACROS= -DLIBEXECDIR='"$(WESTON_PREFIX)libexec"' \
+		-DMODULEDIR='"$(WESTON_PREFIX)lib/weston"'
 
-CFLAGS= $(OPTS) $(INCLUDES)
-CXXFLAGS= $(OPTS) $(INCLUDES)
+CFLAGS= $(OPTS) $(INCLUDES) $(MACROS)
+CXXFLAGS= $(OPTS) $(INCLUDES) $(MACROS)
 LDFLAGS= $(OPTS) $(LIBPATHS) $(COMMONLIBS)
 

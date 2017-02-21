@@ -41,17 +41,6 @@
 
 namespace wayland {
 
-/** \brief display class
-
- */
-class display_t : public display_resource_t {
-private:
-	wl_display *display;
-
-public:
-	display_t();
-};
-
 }
 
 //#include <wayland-server-protocol.hpp>
