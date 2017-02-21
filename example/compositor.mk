@@ -6,29 +6,12 @@ include $(PROJDIR)rules.mk
 
 #TARGET = example
 
-LIBS = wayland-server++ egl-renderer++ pixman-1 input weston-2 wayland-server unwind unwind-x86_64 dl
+LIBS = wayland-server++ pixman-1 input dl
 
 LDFLAGS += -Wl,-E
 
 SRCS = \
 	   compositor.cpp \
-	   backend.cpp \
-	   shared/config-parser.c \
-	   shared/option-parser.c
-
-
-#SRCS = \
-#	   compositor.cpp \
-#	   weston.c \
-#	   text-backend.c \
-#	   weston-screenshooter.c \
-#	   shared/config-parser.c \
-#	   shared/os-compatibility.c \
-#	   shared/option-parser.c
-
-#SRCS = \
-#	   compositor.cpp \
-#	   wayland-renderer.cpp
 
 
 
