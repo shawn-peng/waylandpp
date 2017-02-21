@@ -29,9 +29,6 @@
 backend_t::backend_t() {
 }
 
-int load_module(std::string mod_name) {
-}
-
 
 
 

@@ -1,4 +1,4 @@
-/* wayland-backend.cpp
+/* module.h
  *
  * Copyright (c) 2016 Yisu Peng
  *
@@ -21,17 +21,24 @@
  * SOFTWARE.
  */
 
-class wayland_backend_t {
+#include <string>
+
+class module_t {
+protected:
+	typedef void *obj_t;
+	typedef void *data_t;
+	struct implement_t {
+		obj_t (*create_obj)(data_t);
+	};
+
 private:
+	void *mod;
+	implement_t *impl;
 
 public:
-	wayland_backend_t();
+	module_t();
 
-	int init();
+	int load_module(std::string mod_name);
 };
-
-wayland_backend_t::wayland_backend_t() {
-}
-
 
 

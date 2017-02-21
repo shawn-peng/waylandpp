@@ -1,4 +1,4 @@
-/* wayland-backend.cpp
+/* backend.cpp                                                                
  *
  * Copyright (c) 2016 Yisu Peng
  *
@@ -21,17 +21,18 @@
  * SOFTWARE.
  */
 
-class wayland_backend_t {
-private:
+#include <string>
 
-public:
-	wayland_backend_t();
 
-	int init();
-};
+#include "module.h"
 
-wayland_backend_t::wayland_backend_t() {
+module_t::module_t() {
 }
+
+int module_t::load_module(std::string mod_name) {
+}
+
+
 
 
 
