@@ -1,4 +1,4 @@
-/* compositor.cpp
+/* wayland-backend.cpp
  *
  * Copyright (c) 2016 Yisu Peng
  *

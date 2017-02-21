@@ -1,4 +1,4 @@
-/* compositor.cpp
+/* backend.cpp                                                                
  *
  * Copyright (c) 2016 Yisu Peng
  *
@@ -20,4 +20,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+#include <string>
+
+class backend_t {
+protected:
+	struct implement_t {
+		void (*init)();
+	};
+private:
+	void *mod;
+	implement_t *impl;
+
+public:
+	backend_t();
+
+	int load_module(std::string mod_name);
+};
 
