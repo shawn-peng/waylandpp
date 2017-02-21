@@ -1,7 +1,7 @@
 
 .PHONY: all
 
-TARGETS = server client egl cursor egl-renderer
+TARGETS = server client egl cursor
 
 .PHONY: $(TARGETS)
 
