@@ -42,12 +42,12 @@ class resource_t;
 /** \brief display class
 
  */
-class display_t {
+class display_server_t {
 private:
 	wl_display *display;
 
 public:
-	display_t(std::string name = "");
+	display_server_t(std::string name = "");
 
 	wl_display *c_ptr();
 	void run();
@@ -193,7 +193,7 @@ public:
 	//     Assign resource to event queue. Events coming from resource will be queued in
 	//     queue instead of the display's main queue.
 
-	//     See also: display_t::dispatch_queue().
+	//     See also: display_server_t::dispatch_queue().
 	// */
 	// void set_queue(event_queue_t queue);
 
@@ -253,7 +253,7 @@ private:
 	//resource_bind_func_t bind;
 
 public:
-	global_t(display_t &display, const interface_t &iface,
+	global_t(display_server_t &display, const interface_t &iface,
 			uint32_t version, global_t *data,//void *data,
 			resource_bind_func_t bind_func);
 

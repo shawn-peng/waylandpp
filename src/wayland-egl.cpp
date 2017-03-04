@@ -68,7 +68,7 @@ void egl_window_t::get_attached_size(int &width, int &height) {
 
 // C++ Overrides
 
-EGLDisplay eglGetDisplay(display_t &display) {
+EGLDisplay eglGetDisplay(display_client_t &display) {
 	return eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(display.c_ptr()));
 }
 

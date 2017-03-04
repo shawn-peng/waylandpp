@@ -40,7 +40,7 @@ namespace wayland {
 /** \brief A queue for proxy_t object events.
 
     Event queues allows the events on a display to be handled in a
-    thread-safe manner. See display_t for details.
+    thread-safe manner. See display_client_t for details.
 */
 class event_queue_t {
   private:
@@ -53,13 +53,13 @@ class event_queue_t {
 	event_queue_t(wl_event_queue *q);
 
 	friend class proxy_t;
-	friend class display_t;
+	friend class display_client_t;
 
 	// Get a pointer to the underlying C struct.
 	wl_event_queue *c_ptr();
 };
 
-class display_t;
+class display_client_t;
 
 /** \brief Represents a protocol object on the client side.
 
@@ -120,7 +120,7 @@ class proxy_t : public detail::object_t {
 	friend class registry_proxy_t;
 	friend class egl_window_t;
 	friend class cursor_theme_t;
-	//friend EGLDisplay(::eglGetDisplay)(wayland::display_t &display);
+	//friend EGLDisplay(::eglGetDisplay)(wayland::display_client_t &display);
 
 
 	// Constructors and Destructors
@@ -187,7 +187,7 @@ class proxy_t : public detail::object_t {
 	    Assign proxy to event queue. Events coming from proxy will be queued in
 	    queue instead of the display's main queue.
 
-	    See also: display_t::dispatch_queue().
+	    See also: display_client_t::dispatch_queue().
 	*/
 	void set_queue(event_queue_t queue);
 

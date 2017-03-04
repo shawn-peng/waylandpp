@@ -31,13 +31,13 @@
 
 namespace wayland {
 class egl_window_t;
-class display_t;
+class display_client_t;
 class surface_proxy_t;
 }
 
 // C++ Overrides for EGL functions that depend on native types
 
-EGLDisplay eglGetDisplay(wayland::display_t &display);
+EGLDisplay eglGetDisplay(wayland::display_client_t &display);
 EGLSurface eglCreateWindowSurface(EGLDisplay dpy, EGLConfig config,
                                   wayland::egl_window_t &win,
                                   const EGLint *attrib_list);

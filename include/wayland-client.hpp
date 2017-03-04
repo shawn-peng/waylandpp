@@ -43,16 +43,16 @@ namespace wayland {
 /** \brief Represents a connection to the compositor and acts as a
     proxy to the display singleton object.
 
-    A display_t object represents a client connection to a Wayland
-    compositor. It is created with display_t::display_t(). A
-    connection is terminated using display_t::~display_t().
+    A display_client_t object represents a client connection to a Wayland
+    compositor. It is created with display_client_t::display_client_t(). A
+    connection is terminated using display_client_t::~display_client_t().
 
-    A display_t is also used as the proxy for the display singleton
-    object on the compositor side. A display_t object handles all the
+    A display_client_t is also used as the proxy for the display singleton
+    object on the compositor side. A display_client_t object handles all the
     data sent from and to the compositor. When a proxy_t marshals a
     request, it will write its wire representation to the display's
     write buffer. The data is sent to the compositor when the client
-    calls display_t::flush().
+    calls display_client_t::flush().
 
     Incoming data is handled in two steps: queueing and
     dispatching. In the queue step, the data coming from the display
@@ -62,7 +62,7 @@ namespace wayland {
 
     A display has at least one event queue, called the main
     queue. Clients can create additional event queues with
-    display_t::create_queue() and assign proxy_t's to it. Events
+    display_client_t::create_queue() and assign proxy_t's to it. Events
     occurring in a particular proxy are always queued in its assigned
     queue. A client can ensure that a certain assumption, such as
     holding a lock or running from a given thread, is true when a
@@ -70,7 +70,7 @@ namespace wayland {
     queue and making sure that this queue is only dispatched when the
     assumption holds.
 
-    The main queue is dispatched by calling display_t::dispatch().
+    The main queue is dispatched by calling display_client_t::dispatch().
     This will dispatch any events queued on the main queue and attempt
     to read from the display fd if its empty. Events read are then
     queued on the appropriate queues according to the proxy
@@ -78,7 +78,7 @@ namespace wayland {
     main thread.
 
     A user created queue is dispatched with
-    display_t::dispatch_queue(). If there are no events to dispatch
+    display_client_t::dispatch_queue(). If there are no events to dispatch
     this function will block. If this is called by the main thread,
     this will attempt to read data from the display fd and queue any
     events on the appropriate queues. If calling from any other
@@ -97,25 +97,25 @@ namespace wayland {
     queue, reading all the data from the display fd. If the
     application would call poll(2) after that it would block, even
     though there might be events queued on the main queue. Those
-    events should be dispatched with display_t::dispatch_pending()
+    events should be dispatched with display_client_t::dispatch_pending()
     before flushing and blocking.
 */
-class display_t : public display_proxy_t {
+class display_client_t : public display_proxy_t {
   private:
-	display_t(const display_t &d) { }
+	display_client_t(const display_client_t &d) { }
 
   public:
 	/** \brief Connect to Wayland display on an already open fd.
 	    \param fd The fd to use for the connection
 
-	    The display_t takes ownership of the fd and will close it when
+	    The display_client_t takes ownership of the fd and will close it when
 	    the display is destroyed. The fd will also be closed in case of
 	    failure.
 	*/
-	display_t(int fd);
+	display_client_t(int fd);
 
-	display_t(display_t &&d);
-	display_t &operator=(display_t &&d);
+	display_client_t(display_client_t &&d);
+	display_client_t &operator=(display_client_t &&d);
 
 	/**  \brief Connect to a Wayland display.
 	     \param name Optional name of the Wayland display to connect to
@@ -125,14 +125,14 @@ class display_t : public display_proxy_t {
 	     variable if it is set, otherwise display "wayland-0" will be
 	     used.
 	*/
-	display_t(std::string name = "");
+	display_client_t(std::string name = "");
 
 	/** \brief Close a connection to a Wayland display.
 
 	    Close the connection to display and free all resources
 	    associated with it.
 	*/
-	~display_t();
+	~display_client_t();
 
 	/** \brief Create a new event queue for this display.
 	    \return A new event queue associated with this display or NULL
@@ -177,10 +177,10 @@ class display_t : public display_proxy_t {
 	    display. This function does not dispatch events, it only reads
 	    and queues events into their corresponding event queues. If no
 	    data is avilable on the file descriptor,
-	    display_t::read_events() returns immediately. To dispatch events
-	    that may have been queued, call display_t::dispatch_pending() or
-	    display_t::dispatch_queue_pending(). Before calling this
-	    function, display_t::prepare_read() must be called first.
+	    display_client_t::read_events() returns immediately. To dispatch events
+	    that may have been queued, call display_client_t::dispatch_pending() or
+	    display_client_t::dispatch_queue_pending(). Before calling this
+	    function, display_client_t::prepare_read() must be called first.
 	*/
 	int read_events();
 
@@ -188,25 +188,25 @@ class display_t : public display_proxy_t {
 	    \return 0 on success or -1 if event queue was not empty
 
 	    This function must be called before reading from the file
-	    descriptor using display_t::read_events(). Calling
-	    display_t::prepare_read() announces the calling threads
+	    descriptor using display_client_t::read_events(). Calling
+	    display_client_t::prepare_read() announces the calling threads
 	    intention to read and ensures that until the thread is ready to
-	    read and calls display_t::read_events(), no other thread will
+	    read and calls display_client_t::read_events(), no other thread will
 	    read from the file descriptor. This only succeeds if the event
 	    queue is empty though, and if there are undispatched events in
 	    the queue, -1 is returned and errno set to EAGAIN.
 
-	    If a thread successfully calls display_t::prepare_read(), it
-	    must either call display_t::read_events() when it's ready or
-	    cancel the read intention by calling display_t::cancel_read().
+	    If a thread successfully calls display_client_t::prepare_read(), it
+	    must either call display_client_t::read_events() when it's ready or
+	    cancel the read intention by calling display_client_t::cancel_read().
 
 	    Use this function before polling on the display fd or to
 	    integrate the fd into a toolkit event loop in a race-free
 	    way. Typically, a toolkit will call
-	    display_t::dispatch_pending() before sleeping, to make sure it
+	    display_client_t::dispatch_pending() before sleeping, to make sure it
 	    doesn't block with unhandled events. Upon waking up, it will
 	    assume the file descriptor is readable and read events from the
-	    fd by calling display_t::dispatch(). Simplified, we have:
+	    fd by calling display_client_t::dispatch(). Simplified, we have:
 
 
 	    \code{.cpp}
@@ -226,7 +226,7 @@ class display_t : public display_proxy_t {
 
 	    The other race is immediately after poll(), where another thread
 	    could preempt and read events before the main thread calls
-	    display_t::dispatch(). This call now blocks and starves the
+	    display_client_t::dispatch(). This call now blocks and starves the
 	    other fds in the event loop.
 
 	    A correct sequence would be:
@@ -240,11 +240,11 @@ class display_t : public display_proxy_t {
 	    display.dispatch_pending();
 	    \endcode
 
-	    Here we call display_t::prepare_read(), which ensures that
+	    Here we call display_client_t::prepare_read(), which ensures that
 	    between returning from that call and eventually calling
-	    display_t::read_events(), no other thread will read from the fd
+	    display_client_t::read_events(), no other thread will read from the fd
 	    and queue events in our queue. If the call to
-	    display_t::prepare_read() fails, we dispatch the pending events
+	    display_client_t::prepare_read() fails, we dispatch the pending events
 	    and try again until we're successful.
 	*/
 	int prepare_read();
@@ -253,7 +253,7 @@ class display_t : public display_proxy_t {
 	    \param queue The event queue to prepare read from
 	    \return 0 on success or -1 if event queue was not empty
 
-	    See display_t::prepare_read() for details.
+	    See display_client_t::prepare_read() for details.
 	*/
 
 	int prepare_read_queue(event_queue_t queue);
@@ -304,12 +304,12 @@ class display_t : public display_proxy_t {
 
 	    Note: It is not possible to check if there are events on the
 	    main queue or not. For dispatching main queue events without
-	    blocking, see display_t::dispatch_pending(). Calling this will
+	    blocking, see display_client_t::dispatch_pending(). Calling this will
 	    release the display file descriptor if this thread acquired it
-	    using display_t::acquire_fd().
+	    using display_client_t::acquire_fd().
 
-	    See also: display_t::dispatch_pending(),
-	    display_t::dispatch_queue()
+	    See also: display_client_t::dispatch_pending(),
+	    display_client_t::dispatch_queue()
 	*/
 	int dispatch();
 
@@ -330,8 +330,8 @@ class display_t : public display_proxy_t {
 	    though there are events ready to dispatch.
 
 	    To proper integrate the wayland display fd into a main loop,
-	    the client should always call display_t::dispatch_pending() and
-	    then display_t::flush() prior to going back to sleep. At that
+	    the client should always call display_client_t::dispatch_pending() and
+	    then display_client_t::flush() prior to going back to sleep. At that
 	    point, the fd typically doesn't have data so attempting I/O
 	    could block, but events queued up on the main queue should be
 	    dispatched.
@@ -340,13 +340,13 @@ class display_t : public display_proxy_t {
 	    (or a sound card fd becoming writable, for example in a video
 	    player), which then triggers GL rendering and eventually
 	    eglSwapBuffers(). eglSwapBuffers() may call
-	    display_t::dispatch_queue() if it didn't receive the frame
+	    display_client_t::dispatch_queue() if it didn't receive the frame
 	    event for the previous frame, and as such queue events in the
 	    main queue. Note: Calling this makes the current thread the
 	    main one.
 
-	    See also: display_t::dispatch(), display_t::dispatch_queue(),
-	    display_t::flush()
+	    See also: display_client_t::dispatch(), display_client_t::dispatch_queue(),
+	    display_client_t::flush()
 	*/
 	int dispatch_pending();
 
@@ -370,7 +370,7 @@ class display_t : public display_proxy_t {
 	    number of bytes sent to the server is returned. On failure, this
 	    function returns -1 and errno is set appropriately.
 
-	    display_t::flush() never blocks. It will write as much data as
+	    display_client_t::flush() never blocks. It will write as much data as
 	    possible, but if all data could not be written, errno will be
 	    set to EAGAIN and -1 returned. In that case, use poll on the
 	    display file descriptor to wait for it to become writable again.

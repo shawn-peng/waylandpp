@@ -33,7 +33,7 @@
 using namespace wayland;
 using namespace wayland::detail;
 
-display_t::display_t(std::string name) {
+display_server_t::display_server_t(std::string name) {
 	//: display_resource_t(
 	//		resource_t(
 	//			reinterpret_cast<wl_resource*>(wl_display_create()),
@@ -46,15 +46,15 @@ display_t::display_t(std::string name) {
 	}
 }
 
-wl_display *display_t::c_ptr() {
+wl_display *display_server_t::c_ptr() {
 	return display;
 }
 
-void display_t::run() {
+void display_server_t::run() {
 	wl_display_run(display);
 }
 
-int display_t::init_shm() {
+int display_server_t::init_shm() {
 	return wl_display_init_shm(display);
 }
 
@@ -323,7 +323,7 @@ resource_t *resource_t::create(client_t &&client, const interface_t &interface,
 }
 
 
-global_t::global_t(display_t &display,
+global_t::global_t(display_server_t &display,
 		const interface_t &iface,
 		uint32_t version,
 		//void *data,
