@@ -32,6 +32,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <mutex>
 #include <wayland-server-core.h>
 #include <wayland-util.hpp>
 
@@ -46,11 +47,24 @@ class display_server_t {
 private:
 	wl_display *display;
 
+	//int wake_pipe[2];
+	int wake_recv;
+	int wake_send;
+
 public:
 	display_server_t(std::string name = "");
 
 	wl_display *c_ptr();
+
 	void run();
+
+	void terminate();
+
+	void dispatch();
+
+	void wake();
+
+	static int c_wake_callback(int fd, uint32_t mask, void *data);
 
 	int init_shm();
 };
@@ -61,9 +75,17 @@ public:
 class client_t {
 private:
 	wl_client *client;
+	//display_resource_t display;
+	//std::mutex mutlock;
 public:
 	client_t(int fd);
 	client_t(wl_client *c);
+
+	//void lock();
+	//void unlock();
+
+	//static wl_client from_c_ptr(wl_client c*);
+
 	void flush();
 	//void get_credentials(pid_t *pid, uid_t uid, gid_t gid);
 	//int get_fd();
@@ -72,6 +94,7 @@ public:
 	resource_t get_object(uint32_t id);
 	//void 
 	wl_client *c_ptr();
+	//display_resource_t get_display_resource();
 	
 };
 
@@ -86,15 +109,17 @@ protected:
 	};
 	typedef int(*dispatcher_func)(int, std::vector<detail::any>, std::shared_ptr<resource_t::requests_base_t>);
 
-	struct user_data_t {
-		virtual ~user_data_t() { }
-	};
+	//struct user_data_t {
+	//	virtual ~user_data_t() { }
+	//};
 
 private:
 	struct resource_data_t {
 		std::shared_ptr<requests_base_t> requests;
 		unsigned int counter;
-		user_data_t *user_data;
+		std::mutex lock;
+		//user_data_t *user_data;
+		void *user_data;
 
 		resource_data_t();
 		resource_data_t(std::shared_ptr<requests_base_t> ev, unsigned int cnt);
@@ -204,11 +229,13 @@ public:
 
 	//void bind();
 
-	void set_user_data(user_data_t *data);
-	user_data_t *get_user_data();
+	void set_user_data(void *data);
+	void *get_user_data();
 
 	static resource_t *create(client_t &&client, const interface_t &interface,
 			uint32_t version, uint32_t id);
+
+	void post_error(uint32_t code, const char *msg, ...);
 
 protected:
 

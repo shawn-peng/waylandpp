@@ -6,12 +6,14 @@ include $(PROJDIR)rules.mk
 
 #TARGET = example
 
-LIBS = wayland-server++ pixman-1 input dl
+LIBS = wayland-server++ pixman-1 input dl EGL wayland-client++ wayland-egl++ wayland-cursor++ wayland-shm++ GLESv2 #wayland-server
 
 LDFLAGS += -Wl,-E
 
 SRCS = \
 	   compositor.cpp \
+	   wrapper.cpp \
+
 
 
 

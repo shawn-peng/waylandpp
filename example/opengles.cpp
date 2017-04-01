@@ -50,7 +50,7 @@ std::function<R(Args...)> bind_mem_fn(R(T::* func)(Args...), T *t) {
 class example {
   private:
 	// global objects
-	display_t display;
+	display_client_t display;
 	registry_proxy_t registry;
 	compositor_proxy_t compositor;
 	shell_proxy_t shell;

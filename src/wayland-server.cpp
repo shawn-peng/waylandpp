@@ -24,6 +24,9 @@
  */
 
 #include <assert.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
 
 #include <iostream>
 #include <wayland-server.h>
@@ -44,6 +47,18 @@ display_server_t::display_server_t(std::string name) {
 	} else {
 		wl_display_add_socket(display, name.c_str());
 	}
+
+	int pfds[2];
+	int ret = pipe(pfds);
+	if (ret < 0) {
+		throw std::invalid_argument(strerror(errno));
+	}
+	wake_recv = pfds[0];
+	wake_send = pfds[1];
+	wl_event_loop *loop = wl_display_get_event_loop(display);
+	auto src = wl_event_loop_add_fd(loop, wake_recv,
+			WL_EVENT_READABLE,
+			c_wake_callback, (void *)this);
 }
 
 wl_display *display_server_t::c_ptr() {
@@ -54,16 +69,55 @@ void display_server_t::run() {
 	wl_display_run(display);
 }
 
-int display_server_t::init_shm() {
-	return wl_display_init_shm(display);
+void display_server_t::terminate() {
+	wl_display_terminate(display);
 }
 
-client_t::client_t(wl_client *c) : client(c) {
+void display_server_t::dispatch() {
+	wl_display_flush_clients(display);
+	wl_event_loop *loop = wl_display_get_event_loop(display);
+	wl_event_loop_dispatch(loop, -1);
 }
+
+int display_server_t::c_wake_callback(int fd, uint32_t mask, void *data) {
+	char buf[16];
+	int ret = read(fd, buf, 16);
+}
+
+void display_server_t::wake() {
+	char data = 0;
+	int ret = write(wake_send, &data, sizeof(data));
+}
+
+//int display_server_t::init_shm() {
+//	return wl_display_init_shm(display);
+//}
+
+client_t::client_t(wl_client *c) : client(c) {
+	//wl_resource *disp = c->display_resource;
+	//wl_display disp = wl_client_get_display(c);
+	//display = display_resource_t(resource_t(disp));
+}
+//client_t client_t::from_c_ptr(wl_client *c) {
+//	//client
+//}
+
+
+//void client_t::lock() {
+//	mutlock.lock();
+//}
+//
+//void client_t::unlock() {
+//	mutlock.unlock();
+//}
 
 wl_client *client_t::c_ptr() {
 	return client;
 }
+
+//display_resource_t client_t::get_display_resource() {
+//	return display;
+//}
 
 // void global_bind(wl_client *client, void *data, uint32_t version, uint32_t id) {
 // }
@@ -91,9 +145,11 @@ resource_t::resource_t()
 resource_t::resource_t(wl_resource *p, bool is_display, bool donotdestroy)
 	: object_t((wl_object *)p), resource(p), data(NULL), display(is_display), dontdestroy(donotdestroy), interface(NULL) {
 	if(!display) {
+		// check implementation
 		data = reinterpret_cast<resource_data_t*>(wl_resource_get_user_data(c_ptr()));
 		if(!data) {
 			data = new resource_data_t{std::shared_ptr<requests_base_t>(), 0};
+			cout << "malloc data struct for res(" << get_id() << "), counter = " << data->counter << endl;
 			wl_resource_set_user_data(resource, data);
 		}
 		data->counter++;
@@ -118,6 +174,7 @@ resource_t &resource_t::operator=(const resource_t& p) {
 	if(!data) {
 		std::cerr << "Found resource_t without meta data." << std::endl;
 		data = new resource_data_t{std::shared_ptr<requests_base_t>(), 0};
+		cout << "malloc data struct for res(" << get_id() << "), counter = " << data->counter << endl;
 		wl_resource_set_user_data(resource, data);
 	}
 	data->counter++;
@@ -143,16 +200,17 @@ resource_t &resource_t::operator=(resource_t &&p) {
 
 resource_t::~resource_t() {
 	if(resource && !display) {
-		// data->counter--;
-		// if(data->counter == 0) {
-		// 	if(!dontdestroy) {
-		// 		//if(data->destroy_opcode >= 0) {
-		// 		//	wl_resource_marshal(resource, data->destroy_opcode);
-		// 		//}
-		// 		wl_resource_destroy(resource);
-		// 	}
-		// 	delete data;
-		// }
+		data->counter--;
+		if(data->counter == 0) {
+			if(!dontdestroy) {
+				//if(data->destroy_opcode >= 0) {
+				//	wl_resource_marshal(resource, data->destroy_opcode);
+				//}
+				cout << "destroy resource(" << get_id() << ")" << endl;
+				wl_resource_destroy(resource);
+			}
+			delete data;
+		}
 	}
 }
 
@@ -162,6 +220,8 @@ uint32_t resource_t::get_id() {
 
 client_t resource_t::get_client() {
 	return client_t(wl_resource_get_client(resource));
+	//wl_client *c = wl_resource_get_client(resource);
+	//return client_t::from_c_ptr(c);
 }
 
 uint32_t resource_t::get_version() {
@@ -176,7 +236,7 @@ std::string resource_t::get_class() {
 //	wl_resource_set_queue(c_ptr(), queue.c_ptr());
 //}
 
-void resource_t::set_user_data(user_data_t *user_data) {
+void resource_t::set_user_data(void *user_data) {
 	if (data == NULL) {
 		assert(0);
 	} else {
@@ -184,7 +244,7 @@ void resource_t::set_user_data(user_data_t *user_data) {
 	}
 }
 
-resource_t::user_data_t *resource_t::get_user_data() {
+void *resource_t::get_user_data() {
 	if (data == NULL) {
 		return NULL;
 	} else {
@@ -196,6 +256,19 @@ wl_resource *resource_t::c_ptr() {
 	if(!resource)
 		throw std::invalid_argument("resource is NULL");
 	return resource;
+}
+
+void resource_t::post_error(uint32_t code, const char *msg, ...) {
+	client_t client = get_client();
+	char buffer[128];
+	va_list ap;
+
+	va_start(ap, msg);
+	vsnprintf(buffer, sizeof buffer, msg, ap);
+	va_end(ap);
+
+	//disp.post_event(code, WL_DISPLAY_ERROR, *this, code, buffer);
+	wl_resource_post_error(c_ptr(), code, buffer);
 }
 
 resource_t::resource_data_t::resource_data_t()
@@ -295,6 +368,7 @@ int resource_t::c_dispatcher(const void *implementation, void *target, uint32_t 
 		c++;
 	}
 	dispatcher_func dispatcher = reinterpret_cast<dispatcher_func>(const_cast<void*>(implementation));
+	//std::shared_ptr<requests_base_t> reqs = res.get_requests();
 	return dispatcher(opcode, vargs, res.get_requests());
 }
 
@@ -307,7 +381,9 @@ void resource_t::marshal_vector(int opcode, std::vector<argument_t> args) {
 		v.push_back(arg.argument);
 	}
 
+	//data->lock.lock();
 	wl_resource_post_event_array(resource, opcode, v.data());
+	//data->lock.unlock();
 	return;
 }
 
@@ -319,7 +395,11 @@ std::shared_ptr<resource_t::requests_base_t> resource_t::get_requests() {
 
 resource_t *resource_t::create(client_t &&client, const interface_t &interface,
 		uint32_t version, uint32_t id) {
-	return new resource_t(wl_resource_create(client.c_ptr(), const_cast<wl_interface *>(&interface), version, id));
+	//return client.creat_resource(const_cast<wl_interface *>(&interface), version, id));
+	//client.lock();
+	auto p =  new resource_t(wl_resource_create(client.c_ptr(), const_cast<wl_interface *>(&interface), version, id));
+	//client.unlock();
+	return p;
 }
 
 

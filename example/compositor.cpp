@@ -21,19 +21,29 @@
  * SOFTWARE.
  */
 
+#include <sys/time.h>
 
 #include <iostream>
 #include <queue>
 #include <vector>
 #include <list>
+#include <thread>
 
-#include <wayland-util.h>
+#include <wayland-util.hpp>
+#include <wayland-shm.hpp>
 
 #include <wayland-server.hpp>
+
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+//#include <GL/gl.h>
+//#include <GL/glext.h>
+//#include <GL/glew.h>
 
 #include <EGL/eglext.h>
 #include <pixman-1/pixman.h>
 
+#include "wrapper.hpp"
 
 using namespace wayland;
 using namespace wayland::detail;
@@ -43,20 +53,13 @@ class example_compositor;
 /**
  * 		IMPLEMENTATIONS
  */
-class example_buffer {
-private:
-	buffer_resource_t res;
-public:
-	example_buffer(buffer_resource_t buf) : res(buf) {
-	}
-};
-//class example_surface : public surface_resource_t {
+
+
 class example_surface {
 protected:
-	//struct shell_surf_user_data_t : public user_data_t {
-	//}
 	struct state {
-		shared_ptr<example_buffer> buffer;
+		//shared_ptr<shm_buffer_t> buffer;
+		shm_buffer_t *buffer;
 		int32_t sx;
 		int32_t sy;
 		/* wl_surface.damage */
@@ -69,9 +72,16 @@ protected:
 
 		/* wl_surface.set_input_region */
 		pixman_region32_t input;
+
+		state() : buffer(NULL), sx(0), sy(0) {
+			pixman_region32_init(&damage_buffer);
+			pixman_region32_init(&damage_surface);
+			pixman_region32_init(&opaque);
+			pixman_region32_init(&input);
+		}
 	};
 
-	surface_resource_t res;
+	surface_resource_t resource;
 
 	example_compositor *compositor;
 	std::queue<callback_resource_t> frame_queue;
@@ -84,25 +94,30 @@ protected:
 	int32_t width, height;
 	int32_t ref_count;
 
-	//shared_ptr<example_buffer> pending_buffer;
-	//int32_t pending_sx;
-	//int32_t pending_sy;
 	state pending;
+	state current;
+
+	gl_shader *shader;
 
 public:
-	example_surface(example_compositor *c) : compositor(c) {
-	}
+	example_surface(example_compositor *c);
 
 	int bind(surface_resource_t surf) {
    		//surface_resource_t(surf) {
-		res = surf;
+		resource = surf;
 
 		// lambda functions with members captured
 		surf.on_destroy() = [&]() {
 		};
 
-		surf.on_attach() = [&](buffer_resource_t buffer, int x, int y) {
-			pending.buffer = make_shared<example_buffer>(buffer);
+		surf.on_attach() = [&](buffer_resource_t buf_res, int x, int y) {
+			cout << "attach buffer(" << buf_res.get_id() << ") to: x(" << x << "), y(" << y << ")" << endl;
+			if (pending.buffer) {
+				pending.buffer->release();
+			}
+			shm_buffer_t *buffer = shm_buffer_t::from_resource(buf_res);
+			//pending.buffer.reset(buffer);
+			pending.buffer = buffer;
 			pending.sx = x;
 			pending.sy = y;
 		};
@@ -121,7 +136,96 @@ public:
 		};
 
 		surf.on_commit() = [&]() {
+			cout << "commit" << endl;
+			//swap(pending, current);
 		};
+	}
+
+	shm_buffer_t *get_buffer() {
+		//return current.buffer.get();
+		return pending.buffer;
+	}
+
+	void draw() {
+		GLfloat verts[4 * 2];
+		verts[0] = 0;
+		verts[1] = 0;
+		verts[2] = 0;
+		verts[3] = height;
+		verts[4] = width;
+		verts[5] = height;
+		verts[6] = width;
+		verts[7] = 0;
+		//static const GLfloat verts[4 * 2] = { 
+		//	0.0f, 0.0f,
+		//	1.0f, 0.0f,
+		//	1.0f, 1.0f,
+		//	0.0f, 1.0f
+		//};
+
+
+		GLuint texid;
+		if (!pending.buffer) {
+			return;
+		}
+
+		if (shader == NULL) {
+			cerr << "No valid shader." << endl;
+			return;
+		}
+
+		shm_buffer_t &buf = *pending.buffer;
+
+		cout << "drawing surface(" << resource.get_id() << ")"
+			<< "with attached buffer(" << buf.get_resource().get_id() << ")"
+			<< endl;
+
+		//glClearColor(0.8f, 0, 0, 1.0f);
+		//glClear(GL_COLOR_BUFFER_BIT);
+
+		glActiveTexture(GL_TEXTURE1);
+		glGenTextures(1, &texid);
+		//cout << "texid: " << texid << endl;
+		glBindTexture(GL_TEXTURE_2D, texid);
+		glTexImage2D(GL_TEXTURE_2D, 0,
+					GL_RGBA, 
+					buf.get_width(), buf.get_height(),
+					0, GL_RGBA,
+					GL_UNSIGNED_BYTE,
+					buf.get_data());
+		void *p = buf.get_data();
+		gl_print_error();
+
+		// position:
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
+		glEnableVertexAttribArray(0);
+
+		// texcoord:
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, verts);
+		glEnableVertexAttribArray(1);
+
+		glUseProgram(shader->program);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+		gl_print_error();
+
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(0);
+
+	}
+
+	void frame_done() {
+		if (frame_queue.empty()) {
+			cout << "frame_queue is empty." << endl;
+			return;
+		}
+		timeval tv;
+		gettimeofday(&tv, 0);
+		uint32_t x = tv.tv_sec * 1000 + tv.tv_usec;
+
+		frame_queue.front().send_done(x);
+		cout << "frame_done is sent." << endl;
+		frame_queue.pop();
 	}
 
 	//void attach() {
@@ -137,7 +241,8 @@ protected:
 	//	surface_resource_t surface;
 	//};
 private:
-	surface_resource_t res;
+	shell_surface_resource_t res;
+	surface_resource_t surf_res;
 
 public:
 	//example_shell_surface() {
@@ -148,6 +253,7 @@ public:
 	}
 
 	void bind(shell_surface_resource_t surf) {
+		res = surf;
 		surf.on_pong() = [&](uint32_t serial) {
 			printf("get pong (%d).\n", serial);
 		};
@@ -164,7 +270,7 @@ public:
 		//auto data = new shell_surf_user_data_t();
 		//data->surface = surf;
 		//set_user_data(data);
-		res = surf;
+		surf_res = surf;
 	}
 };
 
@@ -173,7 +279,13 @@ public:
  */
 class example_compositor : public global_t {
 private:
-	display_t display;
+	display_server_t display;
+
+	display_wrapper_t wrapper;
+
+	gl_shader *shader;
+
+	bool running;
 
 	signal_t destroy_signal;
 
@@ -202,6 +314,7 @@ private:
 	//struct weston_layer fade_layer;
 	//struct weston_layer cursor_layer;
 
+	std::list<example_surface *> surface_list;
 	//struct wl_list output_list;
 	//struct wl_list seat_list;
 	//struct wl_list layer_list;
@@ -262,33 +375,30 @@ private:
 	//void (*exit)(struct weston_compositor *c);
 
 public:
-	example_compositor(display_t disp)
+	example_compositor(display_server_t disp)
 		: global_t(disp, compositor_interface, 4, this, NULL),
 		display(disp), session_active(true) {
 		//new global_t(display, compositor_interface, 4, this, &c_bind);
 		//new global_t(display, shell_interface, 1, this, &c_bind);
 		//new global_t(display, seat_interface, 1, this, &c_bind);
 		//new global_t(display, shm_interface, 1, this, &c_bind);
+
+		wrapper.set_owner((void *)this);
+		//wrapper.on_frame() = c_frame;
+		wrapper.register_callback("frame", c_frame);
+		wrapper.register_callback("quit", c_quit);
 	}
 
 	virtual void bind(resource_t res, void *data) {
 		std::cout << "client bind example_compositor" << std::endl;
 
-		compositor_resource_t compositor(res);
-		compositor.on_create_surface() = [&](surface_resource_t surface) {
-			//surface_resource_t surface(*resource_t::create(res.get_client(), surface_interface, res.get_version(), id));
-			//new example_surface(surface);
+		auto compositor = new compositor_resource_t(res);
+		compositor->on_create_surface() = [&](surface_resource_t surf_res) {
+			//surface_resource_t surf_res(*resource_t::create(res.get_client(), surface_interface, res.get_version(), id));
+			//new example_surface(surf_res);
 			auto s = new example_surface(this);
-			s->bind(surface);
-
-			//surface.on_frame() = [&](callback_resource_t c) {
-			//	cout << "frame" << endl;
-			//};
-
-			//surface.on_damage() = [&](int x, int y, int width, int height) {
-			//	cout << "damage: (" << x << ", " << y
-			//		<< ", " << width << ", " << height << ")" << endl;
-			//};
+			s->bind(surf_res);
+			surface_list.push_back(s);
 		};
 	}
 
@@ -297,15 +407,71 @@ public:
 		//c->bind();
 	}
 
+	static void c_frame(void *owner, void *data) {
+		auto p = static_cast<example_compositor *>(owner);
+		p->frame(data);
+	}
 
-	void attach(shared_ptr<example_buffer> buf) {
+	static void c_quit(void *owner, void *data) {
+		auto p = static_cast<example_compositor *>(owner);
+		p->quit();
+	}
+
+	void frame(void *data) {
+		cout << "compositor frame..." << endl;
+		// compose windows
+		// for window list
+		for (auto s : surface_list) {
+			s->draw();
+		}
+
+		for (auto s : surface_list) {
+			s->frame_done();
+		}
+
+		display.wake();
+	}
+
+	void quit() {
+		cout << "quiting..." << endl;
+		running = false;
+		display.terminate();
+	}
+
+	void attach(shared_ptr<shm_buffer_t> buf) {
+	}
+
+	gl_shader *get_shader() {
+		return shader;
+	}
+
+	void run() {
+		running = true;
+		//while (running) {
+		//	display.dispatch();
+		//	wrapper.dispatch();
+		//}
+		//std::thread wrapper_run_thread([&]() {
+		//		wrapper.run();
+		//	});
+		wrapper.start();
+
+		shader = wrapper.get_shader();
+
+		display.run();
+		wrapper.stop();
+		wrapper.join();
 	}
 };
 
+example_surface::example_surface(example_compositor *c) : compositor(c) {
+	shader = c->get_shader();
+}
+
 class example_shell : public global_t {
-	display_t display;
+	display_server_t display;
 public:
-	example_shell(display_t disp)
+	example_shell(display_server_t disp)
 		: global_t(disp, shell_interface, 1, this, NULL),
 		display(disp) {
 	}
@@ -313,18 +479,18 @@ public:
 	virtual void bind(resource_t res, void *data) {
 		std::cout << "client bind example_shell" << std::endl;
 
-		shell_resource_t r(res);
+		auto r = new shell_resource_t(res);
 
-		r.on_get_shell_surface() = [&] (shell_surface_resource_t shell_surf, surface_resource_t surf) {
-			example_shell_surface new_shell_surf(shell_surf);
+		r->on_get_shell_surface() = [&] (shell_surface_resource_t shell_surf, surface_resource_t surf) {
+			auto new_shell_surf = new example_shell_surface(shell_surf);
 			//example_shell_surface new_shell_surf;
-			new_shell_surf.bind_surface(surf);
+			new_shell_surf->bind_surface(surf);
 		};
 	}
 };
 
 class example_seat : public global_t {
-	display_t display;
+	display_server_t display;
 	std::list<resource_t> res_list;
 	signal_t selection_signal;
 	signal_t destroy_signal;
@@ -333,7 +499,7 @@ class example_seat : public global_t {
 	seat_capability caps;
 
 public:
-	example_seat(display_t disp)
+	example_seat(display_server_t disp)
 		: global_t(disp, seat_interface, 1, this, NULL),
 		display(disp),
 		caps(0)
@@ -350,34 +516,18 @@ public:
 		seat_resource_t r(res);
 
 		r.on_get_pointer() = [&](pointer_resource_t res) {
+			auto p = new pointer_resource_t(res);
 		};
 
 		r.on_get_keyboard() = [&](keyboard_resource_t res) {
+			auto p = new keyboard_resource_t(res);
 		};
 
 		r.on_get_touch() = [&](touch_resource_t res) {
+			auto p = new touch_resource_t(res);
 		};
 
 		r.send_capabilities(caps);
-	}
-};
-
-class example_shm : public global_t {
-	display_t display;
-public:
-	example_shm(display_t disp)
-		: global_t(disp, shm_interface, 1, this, NULL),
-		display(disp) {
-	}
-
-	virtual void bind(resource_t res, void *data) {
-		std::cout << "client bind example_shm" << std::endl;
-		//shm_resource_t r(res);
-
-		//r.on_create_pool() = [&] (shm_pool_resource_t pool, int fd, int32_t size) {
-		//	//create_pool(fd, size)
-		//	//pool -> refer pool
-		//};
 	}
 };
 
@@ -387,27 +537,26 @@ void example_surface::commit_state() {
 
 }
 
-
 // No weston version
 int main(int argc, char *argv[]) {
 	//weston_t weston;
 	//weston.init(argc, argv);
 
-	//display_t display("waylandpp-example");
-	display_t display;
+	//display_server_t display("waylandpp-example");
+	display_server_t display;
 
 	example_compositor compositor(display);
 	//compositor.set_weston(weston.ec);
 
 	example_shell shell(display);
 	example_seat seat(display);
-	//example_shm shm(display);
-	display.init_shm();
+	shm_t shm(display);
+	//display.init_shm();
 
 	//gl_renderer glr(EGL_PLATFORM_WAYLAND_KHR, display.c_ptr(),
 	//		NULL, //gl_renderer->alpha_attribs, NULL, 0);
 
-	display.run();
+	compositor.run();
 
 	return 0;
 }

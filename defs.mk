@@ -8,7 +8,7 @@ OBJDIR=$(BUILDDIR)obj/
 INCDIR=$(PROJDIR)include/
 SRCDIR=$(PROJDIR)src/
 
-OPTS= -fpermissive -std=c++11 -fPIC -g
+OPTS= -fpermissive -std=c++11 -fPIC -g -pthread #-fkeep-inline-functions
 
 WESTON_PREFIX=/home/shawn/singularity-workspace/weston/install/
 
@@ -16,7 +16,7 @@ INCLUDES= -I$(WESTON_PREFIX)include/ -I$(WESTON_PREFIX)include/libweston-2/ -I/u
 
 LIBPATHS= -L$(WESTON_PREFIX)lib/ -L/usr/local/lib -L$(LIBDIR)
 
-COMMONLIBS= -lm -lwayland-egl -lEGL -lGL -lwld -lswc
+COMMONLIBS= -lm -lwayland-egl -lEGL -lwld -lswc
 #LIBS= -lm -lwayland-client -lwayland-server -lwayland-egl -lwayland-cursor -lEGL -lGL -lwld -lswc
 
 MACROS= -DLIBEXECDIR='"$(WESTON_PREFIX)libexec"' \
