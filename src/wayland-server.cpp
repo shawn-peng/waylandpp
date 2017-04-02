@@ -149,7 +149,7 @@ resource_t::resource_t(wl_resource *p, bool is_display, bool donotdestroy)
 		data = reinterpret_cast<resource_data_t*>(wl_resource_get_user_data(c_ptr()));
 		if(!data) {
 			data = new resource_data_t{std::shared_ptr<requests_base_t>(), 0};
-			cout << "malloc data struct for res(" << get_id() << "), counter = " << data->counter << endl;
+			//cout << "malloc data struct for res(" << get_id() << "), counter = " << data->counter << endl;
 			wl_resource_set_user_data(resource, data);
 		}
 		data->counter++;

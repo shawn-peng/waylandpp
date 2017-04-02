@@ -1,6 +1,6 @@
 /* compositor.cpp
  *
- * Copyright (c) 2016 Yisu Peng
+ * Copyright (c) 2016-2017 Yisu Peng
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -44,6 +44,7 @@
 #include <EGL/eglext.h>
 #include <pixman-1/pixman.h>
 
+#include "helper.hpp"
 #include "wrapper.hpp"
 
 using namespace wayland;
@@ -144,15 +145,15 @@ public:
 		};
 
 		surf.on_damage() = [&](int x, int y, int width, int height) {
-			cout << "damage: (" << x << ", " << y
-				<< ", " << width << ", " << height << ")" << endl;
+			//cout << "damage: (" << x << ", " << y
+			//	<< ", " << width << ", " << height << ")" << endl;
 			pixman_region32_union_rect(&pending.damage_surface,
 					&pending.damage_surface,
 					x, y, width, height);
 		};
 
 		surf.on_commit() = [&]() {
-			cout << "commit" << endl;
+			//cout << "commit" << endl;
 			//swap(pending, current);
 		};
 	}
@@ -174,7 +175,6 @@ public:
 
 	void frame_done() {
 		if (frame_queue.empty()) {
-			cout << "frame_queue is empty." << endl;
 			return;
 		}
 		timeval tv;
@@ -182,7 +182,6 @@ public:
 		uint32_t x = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
 		frame_queue.front().send_done(x);
-		cout << "frame_done is sent." << endl;
 		frame_queue.pop();
 	}
 
@@ -343,8 +342,20 @@ public:
 
 		wrapper.set_owner((void *)this);
 		//wrapper.on_frame() = c_frame;
-		wrapper.register_callback("frame", c_frame);
-		wrapper.register_callback("quit", c_quit);
+		//wrapper.register_callback("frame", c_frame);
+		//wrapper.register_callback("quit", c_quit);
+		//wrapper.register_callback("frame",
+		//		bind_mem_fn(&example_compositor::frame, this));
+		//wrapper.register_callback("quit",
+		//		bind_mem_fn(&example_compositor::quit, this));
+		wrapper.on_frame() =
+				bind_mem_fn(&example_compositor::frame, this);
+		wrapper.on_quit() =
+				bind_mem_fn(&example_compositor::quit, this);
+		wrapper.on_pointer_enter() =
+				bind_mem_fn(&example_compositor::pointer_enter, this);
+		wrapper.on_pointer_motion() =
+				bind_mem_fn(&example_compositor::pointer_motion, this);
 	}
 
 	virtual void bind(resource_t res, void *data) {
@@ -365,15 +376,15 @@ public:
 		//c->bind();
 	}
 
-	static void c_frame(void *owner, void *data) {
-		auto p = static_cast<example_compositor *>(owner);
-		p->frame(data);
-	}
+	//static void c_frame(void *owner, void *data) {
+	//	auto p = static_cast<example_compositor *>(owner);
+	//	p->frame(data);
+	//}
 
-	static void c_quit(void *owner, void *data) {
-		auto p = static_cast<example_compositor *>(owner);
-		p->quit();
-	}
+	//static void c_quit(void *owner, void *data) {
+	//	auto p = static_cast<example_compositor *>(owner);
+	//	p->quit();
+	//}
 
 
 	int get_width();
@@ -382,8 +393,7 @@ public:
 		return wrapper.get_height();
 	}
 
-	void frame(void *data) {
-		cout << "compositor frame..." << endl;
+	void frame() {
 		// compose windows
 		// for window list
 		for (auto s : surface_list) {
@@ -401,6 +411,15 @@ public:
 		cout << "quiting..." << endl;
 		running = false;
 		display.terminate();
+	}
+
+	void pointer_enter(int32_t x, int32_t y) {
+		cout << "pointer enters (" << x << ", " << y << ")" << endl;
+	}
+
+	void pointer_motion(uint32_t time, int32_t x, int32_t y) {
+		cout << "pointer motion (" << x << ", " << y << ")@"
+			<< time << endl;
 	}
 
 	void attach(shared_ptr<shm_buffer_t> buf) {
@@ -477,14 +496,14 @@ void example_surface::draw() {
 
 	shm_buffer_t &buf = *pending.buffer;
 
-	cout << "drawing surface(" << resource.get_id() << ")"
-		<< "with attached buffer(" << buf.get_resource().get_id() << ")"
-		<< endl;
+	//cout << "drawing surface(" << resource.get_id() << ")"
+	//	<< "with attached buffer(" << buf.get_resource().get_id() << ")"
+	//	<< endl;
 
-	cout << pending.sx << endl
-		<< pending.sy << endl
-		<< width << endl
-		<< height << endl;
+	//cout << pending.sx << endl
+	//	<< pending.sy << endl
+	//	<< width << endl
+	//	<< height << endl;
 	int port_x = pending.sx;
 	int port_y = (compositor->get_height()-height-pending.sy);
 	glViewport(port_x, port_y, width, height);

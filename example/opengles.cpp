@@ -38,6 +38,8 @@
 
 #include <CImg.h>
 
+#include "helper.hpp"
+
 static const char vertex_shader_source[] =
 "attribute vec2 position;\n"
 "varying vec2 v_texcoord;\n"
@@ -63,13 +65,6 @@ static const char texture_fragment_shader_rgba[] =
 using namespace wayland;
 using namespace cimg_library;
 
-// helper to create a std::function out of a member function and an object
-template <typename R, typename T, typename... Args>
-std::function<R(Args...)> bind_mem_fn(R(T::* func)(Args...), T *t) {
-	return [func, t](Args... args) {
-		return (t->*func)(args...);
-	};
-}
 
 void gl_print_error() {
 	GLenum err(glGetError());
@@ -395,7 +390,7 @@ class example {
 		width = image.width();
 		height = image.height();
 		image_data = new unsigned char[image.size()];
-		uint8_t (*p)[width][3] = image_data;
+		uint8_t (*p)[width][3] = (decltype(p))image_data;
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
 				p[i][j][2] = image(j, i, 0, 0);

@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2016-2017 Yisu Peng
  * Copyright (c) 2014, Nils Christopher Brause
  * All rights reserved.
  *
@@ -40,6 +41,7 @@
 #include <wayland-cursor.hpp>
 
 #include "wrapper.hpp"
+#include "helper.hpp"
 
 using namespace wayland;
 
@@ -155,14 +157,6 @@ int gl_shader::init() {
 
 
 
-
-// helper to create a std::function out of a member function and an object
-template <typename R, typename T, typename... Args>
-std::function<R(Args...)> bind_mem_fn(R(T::* func)(Args...), T *t) {
-	return [func, t](Args... args) {
-		return (t->*func)(args...);
-	};
-}
 
 
 // global objects
@@ -281,21 +275,17 @@ void display_wrapper_t::draw(uint32_t serial) {
 	frame_cb = surface.frame();
 	frame_cb.on_done() = bind_mem_fn(&display_wrapper_t::draw, this);
 
-	callback_t func = callback_dict["frame"];
-	if (func) {
-		func(owner, userdata);
-	}
+	//callback_t func = callback_dict["frame"];
+	//if (func) {
+	//	func(owner, userdata);
+	//}
+	frame_callback();
 
 	// swap buffers
 	if(eglSwapBuffers(egldisplay, eglsurface) == EGL_FALSE)
 		throw std::runtime_error("eglSwapBuffers");
 }
 
-
-display_wrapper_t::callback_t &display_wrapper_t::on_frame() {
-	//return frame_callback;
-	return callback_dict["frame"];
-}
 
 display_wrapper_t::display_wrapper_t() {
 	width = WIDTH;
@@ -351,18 +341,25 @@ display_wrapper_t::display_wrapper_t() {
 	cursor_surface = compositor.create_surface();
 
 	// draw cursor
-	pointer.on_enter() = [&](uint32_t serial, surface_proxy_t, int32_t, int32_t) {
+	pointer.on_enter() = [&](uint32_t serial, surface_proxy_t surf_proxy, int32_t x, int32_t y) {
 		cursor_surface.attach(cursor_buffer, 0, 0);
 		cursor_surface.damage(0, 0, cursor_image.width(), cursor_image.height());
 		cursor_surface.commit();
 		pointer.set_cursor(serial, cursor_surface, 0, 0);
+
+		//pointer_enter_callback(owner, serial, surf_proxy, x, y);
 	};
 
 	// window movement
 	pointer.on_button() = [&](uint32_t serial, uint32_t time, uint32_t button, pointer_button_state state) {
+		// check location
 		if(button == BTN_LEFT && state == pointer_button_state::pressed) {
 			shell_surface.move(seat, serial);
 		}
+	};
+
+	pointer.on_motion() = [&](uint32_t time, int32_t surface_x, int32_t surface_y) {
+		pointer_motion_callback(time, surface_x, surface_y);
 	};
 
 	// press 'q' to exit
@@ -436,8 +433,29 @@ void *display_wrapper_t::get_frame_buffer() {
 	return NULL;
 }
 
-int display_wrapper_t::register_callback(std::string event, callback_t f) {
-	callback_dict[event] = f;
+//int display_wrapper_t::register_callback(std::string event, callback_t f) {
+//	callback_dict[event] = f;
+//}
+//int display_wrapper_t::register_callback(std::string event, std::function f) {
+//	callback_dict[event] = f;
+//}
+
+//auto display_wrapper_t::on_frame() {
+decltype(display_wrapper_t::frame_callback) &
+display_wrapper_t::on_frame() {
+	return frame_callback;
+}
+decltype(display_wrapper_t::quit_callback) &
+display_wrapper_t::on_quit() {
+	return quit_callback;
+}
+decltype(display_wrapper_t::pointer_enter_callback) &
+display_wrapper_t::on_pointer_enter() {
+	return pointer_enter_callback;
+}
+decltype(display_wrapper_t::pointer_motion_callback) &
+display_wrapper_t::on_pointer_motion() {
+	return pointer_motion_callback;
 }
 
 gl_shader *display_wrapper_t::get_shader() {
