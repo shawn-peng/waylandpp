@@ -73,6 +73,9 @@ public:
 	int register_callback(std::string event, callback_t f);
 	// events: frame, quit
 
+	int get_width();
+	int get_height();
+
 	callback_t &on_frame();
 
 	gl_shader *get_shader();

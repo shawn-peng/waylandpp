@@ -6,7 +6,7 @@ include $(PROJDIR)rules.mk
 
 #TARGET = example
 
-LIBS = wayland-client++ wayland-egl++ wayland-cursor++ GLESv2
+LIBS = wayland-client++ wayland-egl++ wayland-cursor++ GLESv2 X11
 
 SRCS = \
 	   opengles.cpp

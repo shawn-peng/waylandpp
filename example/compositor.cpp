@@ -134,6 +134,8 @@ public:
 			pending.buffer = buffer;
 			pending.sx = x;
 			pending.sy = y;
+			width = buffer->get_width();
+			height = buffer->get_height();
 		};
 
 		surf.on_frame() = [&](callback_resource_t c) {
@@ -160,108 +162,15 @@ public:
 		return pending.buffer;
 	}
 
-
-	void draw() {
-		//GLfloat verts[4 * 2];
-		//verts[0] = 0;
-		//verts[1] = 0;
-		//verts[2] = 0;
-		//verts[3] = height;
-		//verts[4] = width;
-		//verts[5] = height;
-		//verts[6] = width;
-		//verts[7] = 0;
-		//static const GLfloat verts[4 * 2] = { 
-		//	0.0f, 0.0f,
-		//	1.0f, 0.0f,
-		//	1.0f, 1.0f,
-		//	0.0f, 1.0f
-		//};
-
-		glUseProgram(shader->program);
-
-		//struct {
-		//	GLuint vertex_buffer, element_buffer;
-		//	GLuint textures[2];
-
-		//	/* fields for shader objects ... */
-		//} g_resources;
-		static const GLfloat verts[] = { 
-			-1.0f, -1.0f,
-			-1.0f,  1.0f,
-			1.0f,  1.0f,
-			1.0f, -1.0f,
-		};
-		//static const GLushort elements[] = { 0, 1, 2, 3 };
-
-
-		if (!pending.buffer) {
-			return;
-		}
-
-		if (shader == NULL) {
-			cerr << "No valid shader." << endl;
-			return;
-		}
-
-		shm_buffer_t &buf = *pending.buffer;
-
-		cout << "drawing surface(" << resource.get_id() << ")"
-			<< "with attached buffer(" << buf.get_resource().get_id() << ")"
-			<< endl;
-
-		GLint uniform_texture0
-			= glGetUniformLocation(shader->program, "textures[0]");
-
-		GLuint texture;
-
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0,
-					GL_RGBA, 
-					buf.get_width(),
-					buf.get_height(),
-					0,
-					GL_RGBA, GL_UNSIGNED_BYTE,
-					buf.get_data());
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glUniform1i(uniform_texture0, 0);
-
-
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, &verts);
-		glEnableVertexAttribArray(0);
-
-		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-		glDisableVertexAttribArray(0);
-
-		gl_print_error();
-
-		return;
-
-		// position:
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
-		glEnableVertexAttribArray(0);
-
-		// texcoord:
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, verts);
-		glEnableVertexAttribArray(1);
-
-		glUseProgram(shader->program);
-		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-		gl_print_error();
-
-		glDisableVertexAttribArray(1);
-		glDisableVertexAttribArray(0);
-
+	vector<int> to_window_space(vector<float> v)
+	{
 	}
+
+	vector<float> to_screen_space(vector<int> v)
+	{
+	}
+
+	void draw();
 
 	void frame_done() {
 		if (frame_queue.empty()) {
@@ -466,6 +375,13 @@ public:
 		p->quit();
 	}
 
+
+	int get_width();
+
+	int get_height() {
+		return wrapper.get_height();
+	}
+
 	void frame(void *data) {
 		cout << "compositor frame..." << endl;
 		// compose windows
@@ -515,6 +431,116 @@ public:
 
 example_surface::example_surface(example_compositor *c) : compositor(c) {
 	shader = c->get_shader();
+}
+void example_surface::draw() {
+	//GLfloat verts[4 * 2];
+	//verts[0] = 0;
+	//verts[1] = 0;
+	//verts[2] = 0;
+	//verts[3] = height;
+	//verts[4] = width;
+	//verts[5] = height;
+	//verts[6] = width;
+	//verts[7] = 0;
+	//static const GLfloat verts[4 * 2] = { 
+	//	0.0f, 0.0f,
+	//	1.0f, 0.0f,
+	//	1.0f, 1.0f,
+	//	0.0f, 1.0f
+	//};
+
+	glUseProgram(shader->program);
+
+	//struct {
+	//	GLuint vertex_buffer, element_buffer;
+	//	GLuint textures[2];
+
+	//	/* fields for shader objects ... */
+	//} g_resources;
+	static const GLfloat verts[] = { 
+		-1.0f,  1.0f,
+		-1.0f, -1.0f,
+		1.0f, -1.0f,
+		1.0f,  1.0f,
+	};
+	//static const GLushort elements[] = { 0, 1, 2, 3 };
+
+
+	if (!pending.buffer) {
+		return;
+	}
+
+	if (shader == NULL) {
+		cerr << "No valid shader." << endl;
+		return;
+	}
+
+	shm_buffer_t &buf = *pending.buffer;
+
+	cout << "drawing surface(" << resource.get_id() << ")"
+		<< "with attached buffer(" << buf.get_resource().get_id() << ")"
+		<< endl;
+
+	cout << pending.sx << endl
+		<< pending.sy << endl
+		<< width << endl
+		<< height << endl;
+	int port_x = pending.sx;
+	int port_y = (compositor->get_height()-height-pending.sy);
+	glViewport(port_x, port_y, width, height);
+	//glMatrixMode(GL_PROJECTION);
+
+	GLint uniform_tex
+		= glGetUniformLocation(shader->program, "tex");
+
+	GLuint texture;
+
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0,
+			GL_RGBA, 
+			buf.get_width(),
+			buf.get_height(),
+			0,
+			GL_RGBA, GL_UNSIGNED_BYTE,
+			buf.get_data());
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glUniform1i(uniform_tex, 0);
+
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, &verts);
+	glEnableVertexAttribArray(0);
+
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+	glDisableVertexAttribArray(0);
+
+	gl_print_error();
+
+	return;
+
+	// position:
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glEnableVertexAttribArray(0);
+
+	// texcoord:
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glEnableVertexAttribArray(1);
+
+	glUseProgram(shader->program);
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+	gl_print_error();
+
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(0);
+
 }
 
 class example_shell : public global_t {

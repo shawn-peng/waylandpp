@@ -32,11 +32,36 @@
 #include <array>
 #include <wayland-client.hpp>
 #include <wayland-egl.hpp>
-#include <GL/gl.h>
+#include <GLES2/gl2.h>
 #include <linux/input.h>
 #include <wayland-cursor.hpp>
 
+#include <CImg.h>
+
+static const char vertex_shader_source[] =
+"attribute vec2 position;\n"
+"varying vec2 v_texcoord;\n"
+"void main()\n"
+"{\n"
+"	gl_Position = vec4(position, 0.0, 1.0);\n"
+"	v_texcoord = position * vec2(0.5) + vec2(0.5);\n"
+"}\n";
+
+
+static const char fragment_brace[] =
+"}\n";
+
+static const char texture_fragment_shader_rgba[] =
+"//precision mediump float;\n"
+"varying vec2 v_texcoord;\n"
+"uniform sampler2D tex;\n"
+"void main()\n"
+"{\n"
+"   gl_FragColor = texture2D(tex, v_texcoord);\n"
+;
+
 using namespace wayland;
+using namespace cimg_library;
 
 // helper to create a std::function out of a member function and an object
 template <typename R, typename T, typename... Args>
@@ -45,6 +70,147 @@ std::function<R(Args...)> bind_mem_fn(R(T::* func)(Args...), T *t) {
 		return (t->*func)(args...);
 	};
 }
+
+void gl_print_error() {
+	GLenum err(glGetError());
+	while (err != GL_NO_ERROR) {
+		string error;
+		switch (err) {
+			case GL_INVALID_OPERATION:
+				error = "INVALID_OPERATION";
+				break;
+			case GL_INVALID_ENUM:
+				error = "INVALID_ENUM";
+				break;
+			case GL_INVALID_VALUE:
+				error = "INVALID_VALUE";
+				break;
+			case GL_OUT_OF_MEMORY:
+				error = "OUT_OF_MEMORY";
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				error = "INVALID_FRAMEBUFFER_OPERATION";
+				break;
+			default:
+				error = "Unknown error";
+				break;
+		}
+		std::cout << "GL_" << error;
+		err = glGetError();
+	}
+}
+
+static int
+compile_shader(GLenum type, int count, const char **sources)
+{
+	GLuint s;
+	char msg[512] = {0};
+	GLint status;
+
+	s = glCreateShader(type);
+	glShaderSource(s, count, sources, NULL);
+	glCompileShader(s);
+	glGetShaderiv(s, GL_COMPILE_STATUS, &status);
+	if (!status) {
+		glGetShaderInfoLog(s, sizeof msg, NULL, msg);
+		throw std::runtime_error(msg);
+		return GL_NONE;
+	}
+
+	return s;
+}
+
+struct gl_shader {
+	GLuint program;
+	GLuint vertex_shader, fragment_shader;
+	GLint proj_uniform;
+	GLint tex_uniforms[3];
+	GLint alpha_uniform;
+	GLint color_uniform;                        
+	const char *vertex_source, *fragment_source;
+
+	gl_shader();
+
+	int init();
+};
+
+gl_shader::gl_shader() {
+}
+
+int gl_shader::init() {
+	const GLchar *vssrc = vertex_shader_source;
+	const GLchar *fragment_source = texture_fragment_shader_rgba;
+	const char *fssrcs[3];
+	fssrcs[0] = fragment_source;
+	//fssrcs[1] = fragment_debug;
+	fssrcs[1] = fragment_brace;
+	int count = 2;
+	GLint status;
+
+	//glActiveTexture(GL_TEXTURE0);
+	vertex_shader = compile_shader(GL_VERTEX_SHADER, 1, &vssrc);
+	fragment_shader = compile_shader(GL_FRAGMENT_SHADER, count, fssrcs);
+
+	program = glCreateProgram();
+	glAttachShader(program, vertex_shader);
+	glAttachShader(program, fragment_shader);
+	glBindAttribLocation(program, 0, "position");
+	glBindAttribLocation(program, 1, "texcoord");
+
+	glLinkProgram(program);
+	glGetProgramiv(program, GL_LINK_STATUS, &status);
+	if (!status) {
+		char msg[512];
+		glGetProgramInfoLog(program, sizeof msg, NULL, msg);
+		throw std::runtime_error(msg);
+		return -1;
+	}
+
+	proj_uniform = glGetUniformLocation(program, "proj");
+	tex_uniforms[0] = glGetUniformLocation(program, "tex");
+	tex_uniforms[1] = glGetUniformLocation(program, "tex1");
+	tex_uniforms[2] = glGetUniformLocation(program, "tex2");
+	alpha_uniform = glGetUniformLocation(program, "alpha");
+	color_uniform = glGetUniformLocation(program, "color");
+
+	return 0;
+}
+//int gl_shader::init() {
+//	const GLchar *vssrc = vertex_shader_source;
+//	const GLchar *fssrcs = texture_fragment_shader_rgba;
+//	GLint status;
+//
+//	//glActiveTexture(GL_TEXTURE0);
+//	vertex_shader = compile_shader(GL_VERTEX_SHADER, 1, &vssrc);
+//	fragment_shader = compile_shader(GL_FRAGMENT_SHADER, 1, &fssrcs);
+//
+//	program = glCreateProgram();
+//	glAttachShader(program, vertex_shader);
+//	glAttachShader(program, fragment_shader);
+//	glBindAttribLocation(program, 0, "position");
+//	//glBindAttribLocation(program, 1, "texcoord");
+//
+//	glLinkProgram(program);
+//	gl_print_error();
+//	glGetProgramiv(program, GL_LINK_STATUS, &status);
+//	if (!status) {
+//		char msg[512];
+//		glGetProgramInfoLog(program, sizeof msg, NULL, msg);
+//		throw std::runtime_error(msg);
+//		return -1;
+//	}
+//
+//	//proj_uniform = glGetUniformLocation(program, "proj");
+//	//tex_uniforms[0] = glGetUniformLocation(program, "tex");
+//	//tex_uniforms[1] = glGetUniformLocation(program, "tex1");
+//	//tex_uniforms[2] = glGetUniformLocation(program, "tex2");
+//	//alpha_uniform = glGetUniformLocation(program, "alpha");
+//	//color_uniform = glGetUniformLocation(program, "color");
+//
+//	return 0;
+//}
+
+
 
 // example Wayland client
 class example {
@@ -73,10 +239,14 @@ class example {
 	EGLDisplay egldisplay;
 	EGLSurface eglsurface;
 	EGLContext eglcontext;
+	gl_shader shader;
 
 	bool running;
 	bool has_pointer;
 	bool has_keyboard;
+
+	void *image_data;
+	int width, height;
 
 	void init_egl() {
 		egldisplay = eglGetDisplay(display);
@@ -170,9 +340,45 @@ class example {
 				break;
 		}
 
+		glUseProgram(shader.program);
+
 		// draw stuff
-		glClearColor(r, g, b, 0.5f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		//glClearColor(r, g, b, 0.5f);
+		//glClear(GL_COLOR_BUFFER_BIT);
+
+		static const GLfloat verts[] = { 
+			-1.0f,  1.0f,
+			-1.0f, -1.0f,
+			1.0f, -1.0f,
+			1.0f,  1.0f,
+		};
+
+		GLint uniform_tex
+			= glGetUniformLocation(shader.program, "tex");
+
+		GLuint tex;
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexImage2D(GL_TEXTURE_2D, 0,
+					GL_RGB, 
+					width,
+					height,
+					0,
+					GL_RGB, GL_UNSIGNED_BYTE,
+					image_data);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glUniform1i(uniform_tex, 0);
+
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, &verts);
+		glEnableVertexAttribArray(0);
+
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+		glDisableVertexAttribArray(0);
+		
 
 		// schedule next draw
 		frame_cb = surface.frame();
@@ -185,6 +391,20 @@ class example {
 
   public:
 	example() {
+		CImg<unsigned char> image("example/ocean.jpg");
+		width = image.width();
+		height = image.height();
+		image_data = new unsigned char[image.size()];
+		uint8_t (*p)[width][3] = image_data;
+		for (int i = 0; i < height; i++) {
+			for (int j = 0; j < width; j++) {
+				p[i][j][2] = image(j, i, 0, 0);
+				p[i][j][1] = image(j, i, 0, 1);
+				p[i][j][0] = image(j, i, 0, 2);
+			}
+		}
+		
+
 		// retrieve global objects
 		registry = display.get_registry();
 		registry.on_global() = [&](uint32_t name, std::string interface, uint32_t version) {
@@ -254,8 +474,11 @@ class example {
 		};
 
 		// intitialize egl
-		egl_window = egl_window_t(surface, 320, 240);
+		//egl_window = egl_window_t(surface, 320, 240);
+		egl_window = egl_window_t(surface, width, height);
 		init_egl();
+
+		shader.init();
 
 		// draw stuff
 		draw();
@@ -263,10 +486,12 @@ class example {
 
 	~example() {
 		// finialize EGL
-		if(eglDestroyContext(egldisplay, eglcontext) == EGL_FALSE)
-			throw std::runtime_error("eglDestroyContext");
-		if(eglTerminate(egldisplay) == EGL_FALSE)
-			throw std::runtime_error("eglTerminate");
+		//if(eglDestroyContext(egldisplay, eglcontext) == EGL_FALSE)
+		//	throw std::runtime_error("eglDestroyContext");
+		//if(eglTerminate(egldisplay) == EGL_FALSE)
+		//	throw std::runtime_error("eglTerminate");
+		eglDestroyContext(egldisplay, eglcontext);
+		eglTerminate(egldisplay);
 	}
 
 	void run() {

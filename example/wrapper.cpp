@@ -53,13 +53,11 @@ using namespace wayland;
  * 		SHADER SOURCES
  */
 static const char vertex_shader_source[] =
-"//uniform mat4 proj;\n"
 "attribute vec2 position;\n"
 "//attribute vec2 texcoord;\n"
 "varying vec2 v_texcoord;\n"
 "void main()\n"
 "{\n"
-"   //gl_Position = proj * vec4(position, 0.0, 1.0);\n"
 "	gl_Position = vec4(position, 0.0, 1.0);\n"
 "	v_texcoord = position * vec2(0.5) + vec2(0.5);\n"
 "   //v_texcoord = texcoord;\n"
@@ -74,14 +72,10 @@ static const char fragment_brace[] =
 static const char texture_fragment_shader_rgba[] =
 "precision mediump float;\n"
 "varying vec2 v_texcoord;\n"
-"uniform sampler2D textures[2];\n"
-"//uniform sampler2D tex;\n"
-"//uniform float alpha;\n"
+"uniform sampler2D tex;\n"
 "void main()\n"
 "{\n"
-"   //gl_FragColor = alpha * texture2D(tex, v_texcoord);\n"
-"   gl_FragColor = texture2D(textures[0], v_texcoord);\n"
-"	//gl_FragColor = vec4(0.5,0.6,0.7,1.0);\n"
+"   gl_FragColor = texture2D(tex, v_texcoord);\n"
 ;
 
 static const char texture_fragment_shader_rgbx[] =
@@ -449,6 +443,14 @@ int display_wrapper_t::register_callback(std::string event, callback_t f) {
 gl_shader *display_wrapper_t::get_shader() {
 	std::future<gl_shader *> futp = initialized_shader.get_future();
 	return futp.get();
+}
+
+int display_wrapper_t::get_width() {
+	return width;
+}
+
+int display_wrapper_t::get_height() {
+	return height;
 }
 
 
