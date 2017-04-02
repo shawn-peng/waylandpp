@@ -22,6 +22,7 @@
  */
 
 #include <sys/time.h>
+#include <stdlib.h>
 
 #include <iostream>
 #include <queue>
@@ -50,10 +51,23 @@ using namespace wayland::detail;
 
 class example_compositor;
 
+void *read_tga(const char *filename, int *width, int *height);
+
 /**
  * 		IMPLEMENTATIONS
  */
 
+static GLuint make_buffer(
+		GLenum target,
+		const void *buffer_data,
+		GLsizei buffer_size)
+{
+	GLuint buffer;
+	glGenBuffers(1, &buffer);
+	glBindBuffer(target, buffer);
+	glBufferData(target, buffer_size, buffer_data, GL_STATIC_DRAW);
+	return buffer;
+}
 
 class example_surface {
 protected:
@@ -146,16 +160,17 @@ public:
 		return pending.buffer;
 	}
 
+
 	void draw() {
-		GLfloat verts[4 * 2];
-		verts[0] = 0;
-		verts[1] = 0;
-		verts[2] = 0;
-		verts[3] = height;
-		verts[4] = width;
-		verts[5] = height;
-		verts[6] = width;
-		verts[7] = 0;
+		//GLfloat verts[4 * 2];
+		//verts[0] = 0;
+		//verts[1] = 0;
+		//verts[2] = 0;
+		//verts[3] = height;
+		//verts[4] = width;
+		//verts[5] = height;
+		//verts[6] = width;
+		//verts[7] = 0;
 		//static const GLfloat verts[4 * 2] = { 
 		//	0.0f, 0.0f,
 		//	1.0f, 0.0f,
@@ -163,8 +178,23 @@ public:
 		//	0.0f, 1.0f
 		//};
 
+		glUseProgram(shader->program);
 
-		GLuint texid;
+		//struct {
+		//	GLuint vertex_buffer, element_buffer;
+		//	GLuint textures[2];
+
+		//	/* fields for shader objects ... */
+		//} g_resources;
+		static const GLfloat verts[] = { 
+			-1.0f, -1.0f,
+			-1.0f,  1.0f,
+			1.0f,  1.0f,
+			1.0f, -1.0f,
+		};
+		//static const GLushort elements[] = { 0, 1, 2, 3 };
+
+
 		if (!pending.buffer) {
 			return;
 		}
@@ -180,21 +210,40 @@ public:
 			<< "with attached buffer(" << buf.get_resource().get_id() << ")"
 			<< endl;
 
-		//glClearColor(0.8f, 0, 0, 1.0f);
-		//glClear(GL_COLOR_BUFFER_BIT);
+		GLint uniform_texture0
+			= glGetUniformLocation(shader->program, "textures[0]");
 
-		glActiveTexture(GL_TEXTURE1);
-		glGenTextures(1, &texid);
-		//cout << "texid: " << texid << endl;
-		glBindTexture(GL_TEXTURE_2D, texid);
+		GLuint texture;
+
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
 		glTexImage2D(GL_TEXTURE_2D, 0,
 					GL_RGBA, 
-					buf.get_width(), buf.get_height(),
-					0, GL_RGBA,
-					GL_UNSIGNED_BYTE,
+					buf.get_width(),
+					buf.get_height(),
+					0,
+					GL_RGBA, GL_UNSIGNED_BYTE,
 					buf.get_data());
-		void *p = buf.get_data();
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glUniform1i(uniform_texture0, 0);
+
+
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, &verts);
+		glEnableVertexAttribArray(0);
+
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+		glDisableVertexAttribArray(0);
+
 		gl_print_error();
+
+		return;
 
 		// position:
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
@@ -221,7 +270,7 @@ public:
 		}
 		timeval tv;
 		gettimeofday(&tv, 0);
-		uint32_t x = tv.tv_sec * 1000 + tv.tv_usec;
+		uint32_t x = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
 		frame_queue.front().send_done(x);
 		cout << "frame_done is sent." << endl;

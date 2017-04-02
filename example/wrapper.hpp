@@ -49,6 +49,9 @@ private:
 	//callback_t quit_callback;
 	std::unordered_map<std::string, callback_t> callback_dict;
 
+	int width;
+	int height;
+
 public:
 	display_wrapper_t();
 	~display_wrapper_t();

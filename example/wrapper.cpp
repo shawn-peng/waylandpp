@@ -35,6 +35,7 @@
 #include <wayland-client.hpp>
 #include <wayland-egl.hpp>
 #include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 #include <linux/input.h>
 #include <wayland-cursor.hpp>
 
@@ -52,14 +53,16 @@ using namespace wayland;
  * 		SHADER SOURCES
  */
 static const char vertex_shader_source[] =
-"uniform mat4 proj;\n"
+"//uniform mat4 proj;\n"
 "attribute vec2 position;\n"
-"attribute vec2 texcoord;\n"
+"//attribute vec2 texcoord;\n"
 "varying vec2 v_texcoord;\n"
 "void main()\n"
 "{\n"
 "   //gl_Position = proj * vec4(position, 0.0, 1.0);\n"
-"   v_texcoord = texcoord;\n"
+"	gl_Position = vec4(position, 0.0, 1.0);\n"
+"	v_texcoord = position * vec2(0.5) + vec2(0.5);\n"
+"   //v_texcoord = texcoord;\n"
 "}\n";
 
 static const char fragment_debug[] =
@@ -71,11 +74,14 @@ static const char fragment_brace[] =
 static const char texture_fragment_shader_rgba[] =
 "precision mediump float;\n"
 "varying vec2 v_texcoord;\n"
-"uniform sampler2D tex;\n"
-"uniform float alpha;\n"
+"uniform sampler2D textures[2];\n"
+"//uniform sampler2D tex;\n"
+"//uniform float alpha;\n"
 "void main()\n"
 "{\n"
-"   gl_FragColor = alpha * texture2D(tex, v_texcoord)\n;"
+"   //gl_FragColor = alpha * texture2D(tex, v_texcoord);\n"
+"   gl_FragColor = texture2D(textures[0], v_texcoord);\n"
+"	//gl_FragColor = vec4(0.5,0.6,0.7,1.0);\n"
 ;
 
 static const char texture_fragment_shader_rgbx[] =
@@ -118,9 +124,9 @@ int gl_shader::init() {
 	const GLchar *fragment_source = texture_fragment_shader_rgba;
 	const char *fssrcs[3];
 	fssrcs[0] = fragment_source;
-	fssrcs[1] = fragment_debug;
-	fssrcs[2] = fragment_brace;
-	int count = 3;
+	//fssrcs[1] = fragment_debug;
+	fssrcs[1] = fragment_brace;
+	int count = 2;
 	GLint status;
 
 	//glActiveTexture(GL_TEXTURE0);
@@ -276,6 +282,7 @@ void display_wrapper_t::draw(uint32_t serial) {
 	glClearColor(0, 0, 0, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
+
 	// schedule next draw
 	frame_cb = surface.frame();
 	frame_cb.on_done() = bind_mem_fn(&display_wrapper_t::draw, this);
@@ -297,6 +304,9 @@ display_wrapper_t::callback_t &display_wrapper_t::on_frame() {
 }
 
 display_wrapper_t::display_wrapper_t() {
+	width = WIDTH;
+	height = HEIGHT;
+
 	display = display_client_t(std::string("wayland-0"));
 	// retrieve global objects
 	registry = display.get_registry();
@@ -378,10 +388,12 @@ display_wrapper_t::display_wrapper_t() {
 
 display_wrapper_t::~display_wrapper_t() {
 	// finialize EGL
-	if(eglDestroyContext(egldisplay, eglcontext) == EGL_FALSE)
-		throw std::runtime_error("eglDestroyContext");
-	if(eglTerminate(egldisplay) == EGL_FALSE)
-		throw std::runtime_error("eglTerminate");
+	//if(eglDestroyContext(egldisplay, eglcontext) == EGL_FALSE)
+	//	throw std::runtime_error("eglDestroyContext");
+	//if(eglTerminate(egldisplay) == EGL_FALSE)
+	//	throw std::runtime_error("eglTerminate");
+	eglDestroyContext(egldisplay, eglcontext);
+	eglTerminate(egldisplay);
 }
 
 void display_wrapper_t::start() {
@@ -399,7 +411,7 @@ void display_wrapper_t::join() {
 
 void display_wrapper_t::run() {
 	// intitialize egl
-	egl_window = egl_window_t(surface, WIDTH, HEIGHT);
+	egl_window = egl_window_t(surface, width, height);
 	init_egl();
 
 	shader.init();
