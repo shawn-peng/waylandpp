@@ -45,6 +45,7 @@ namespace wayland {
 //class proxy_t;
 
 class array_t;
+class fixed_t;
 
 namespace detail {
 class any {
@@ -212,6 +213,9 @@ class argument_t {
 	// (this works, because wl_argument is an union)
 	argument_t(uint32_t i);
 
+	// handels fixed
+	argument_t(fixed_t f);
+
 	// handles strings
 	argument_t(std::string s);
 
@@ -222,6 +226,19 @@ class argument_t {
 	argument_t(array_t a);
 };
 }
+
+class fixed_t {
+  private:
+	  wl_fixed_t fixed;
+  public:
+	  fixed_t() { }
+	  fixed_t(int x) { fixed = wl_fixed_from_int(x); }
+	  fixed_t(double x) { fixed = wl_fixed_from_double(x); }
+	  //fixed_t(wl_fixed_t x) { fixed = x; }
+	  void set_data(wl_fixed_t x) { fixed = x; }
+	  operator int() { return wl_fixed_to_int(fixed); }
+	  operator double() { return wl_fixed_to_double(fixed); }
+};
 
 class array_t {
   private:

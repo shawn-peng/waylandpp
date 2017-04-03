@@ -316,13 +316,20 @@ int resource_t::c_dispatcher(const void *implementation, void *target, uint32_t 
 			// int_32_t
 			case 'i':
 			case 'h':
-			case 'f':
 				a = args[c].i;
 				break;
 			// uint32_t
 			case 'u':
 				a = args[c].u;
 				break;
+			// fixed
+			case 'f':
+			{
+				fixed_t f;
+				f.set_data(args[c].f);
+				a = f;
+				break;
+			}
 			// string
 			case 's':
 				if(args[c].s)

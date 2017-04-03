@@ -65,7 +65,7 @@ struct argument_t : public element_t {
 		else if (type == "uint")
 			return "uint32_t";
 		else if (type == "fixed")
-			return "int32_t";
+			return "fixed_t";
 		else if (type == "string")
 			return "std::string";
 		else if (type == "object") {
@@ -1248,6 +1248,7 @@ int main(int argc, char *argv[]) {
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-util.hpp>" << std::endl
 	                   << "#include <wayland-client-core.hpp>" << std::endl
 	                   << std::endl
 	                   //<< "#include <wayland-client.hpp>" << std::endl
@@ -1290,6 +1291,7 @@ int main(int argc, char *argv[]) {
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-util.hpp>" << std::endl
 	                   << "#include <wayland-server-core.hpp>" << std::endl
 	                   << std::endl
 	                   << std::endl

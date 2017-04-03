@@ -418,8 +418,12 @@ public:
 	}
 
 	void pointer_motion(uint32_t time, int32_t x, int32_t y) {
-		cout << "pointer motion (" << x << ", " << y << ")@"
-			<< time << endl;
+		//cout << "pointer motion (" << x << ", " << y << ")@"
+		//	<< time << endl;
+		for (auto s : surface_list) {
+			if (s->bounding(x, y)) {
+			}
+		}
 	}
 
 	void attach(shared_ptr<shm_buffer_t> buf) {

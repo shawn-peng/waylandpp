@@ -33,6 +33,7 @@
 #include <array>
 #include <future>
 
+#include <wayland-util.hpp>
 #include <wayland-client.hpp>
 #include <wayland-egl.hpp>
 #include <GLES2/gl2.h>
@@ -341,7 +342,7 @@ display_wrapper_t::display_wrapper_t() {
 	cursor_surface = compositor.create_surface();
 
 	// draw cursor
-	pointer.on_enter() = [&](uint32_t serial, surface_proxy_t surf_proxy, int32_t x, int32_t y) {
+	pointer.on_enter() = [&](uint32_t serial, surface_proxy_t surf_proxy, fixed_t x, fixed_t y) {
 		cursor_surface.attach(cursor_buffer, 0, 0);
 		cursor_surface.damage(0, 0, cursor_image.width(), cursor_image.height());
 		cursor_surface.commit();
@@ -358,7 +359,7 @@ display_wrapper_t::display_wrapper_t() {
 		}
 	};
 
-	pointer.on_motion() = [&](uint32_t time, int32_t surface_x, int32_t surface_y) {
+	pointer.on_motion() = [&](uint32_t time, fixed_t surface_x, fixed_t surface_y) {
 		pointer_motion_callback(time, surface_x, surface_y);
 	};
 
