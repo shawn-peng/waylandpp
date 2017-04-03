@@ -421,8 +421,8 @@ public:
 		//cout << "pointer motion (" << x << ", " << y << ")@"
 		//	<< time << endl;
 		for (auto s : surface_list) {
-			if (s->bounding(x, y)) {
-			}
+			//if (s->bounding(x, y)) {
+			//}
 		}
 	}
 
