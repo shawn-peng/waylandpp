@@ -39,24 +39,24 @@ In the following, it is assumed that the reader is familiar with basic
 Wayland concepts and the latest version of the C++ programming language.
 
 Each interface is represented by a class. E.g. the wl_registry
-interface is represented by the registry_t class.
+interface is represented by the registry_proxy_t class.
 
 An instance of a class is a wrapper for a Wayland object (a wl_proxy
 pointer). If a copy is made of a particualr instance, both instances
 refer to the same Wayland object. The underlying Wayland object is
 destroyed once there are no copies of this object left. Only a few
-classes are non-copyable, namely display_t and egl_window_t.
+classes are non-copyable, namely display_client_t and egl_window_t.
 
 A request to an object of a specific interface corresponds to a method
 in this class. E.g. to marshal the create_pool request on an wl_shm
 interface, the create_pool() method of an instance of shm_t has to be
 called:
 
-    shm_t shm;
+    shm_proxy_t shm;
     int fd;
     int32_t size;
     // ... insert initialization of the above here ...
-    shm_pool_t shm_pool = shm.create_pool(fd, size);
+    shm_pool_proxy_t shm_pool = shm.create_pool(fd, size);
 
 Some methods return newly created instances of other classes. In this
 example an instance of the class shm_pool_t is returned.
@@ -73,6 +73,9 @@ lambda expression, one could write:
 
 An example for using member functions can be found under
 example/opengles.cpp or example/shm.cpp.
+
+An C++ example compositor is under
+example/compositor.cpp
 
 The Wayland protocol uses arrays in some of its events and requests.
 Since these arrays can have arbitrary content, they are not directly
