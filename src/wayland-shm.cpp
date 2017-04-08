@@ -97,6 +97,17 @@ int shm_buffer_t::get_height() {
 	//return wl_shm_buffer_get_height(buffer);
 }
 
+void shm_buffer_t::swap_BR_channels() {
+	uint8_t *sp = (uint8_t *)get_data();
+	unsigned char (*p)[4];
+	for (int i = 0; i < height; i++) {
+		p = (decltype (p))&sp[i * stride];
+		for (int j = 0; j < width; j++) {
+			swap(p[j][0], p[j][2]);
+		}
+	}
+}
+
 void shm_buffer_t::release() {
 	resource.send_release();
 }
@@ -172,6 +183,7 @@ void shm_t::bind(resource_t res, void *data) {
 	res_list.push_back(r);
 
 	r.send_format(shm_format::argb8888);
+	r.send_format(shm_format::rgba8888);
 
 	r.on_create_pool() = [&] (shm_pool_resource_t res,
 			int fd, int32_t size) {

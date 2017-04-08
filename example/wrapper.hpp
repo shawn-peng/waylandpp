@@ -79,6 +79,10 @@ private:
 	function<void()> quit_callback;
 	function<void(int32_t,int32_t)> pointer_enter_callback;
 	function<void(uint32_t,int32_t,int32_t)> pointer_motion_callback;
+	function<void(uint32_t,uint32_t,uint32_t,
+			wayland::pointer_button_state,
+			function<void()>
+			)> pointer_button_callback;
 	//std::unordered_map<std::string, std::function> callback_dict;
 	//std::unordered_map<std::string, callback_t> callback_dict;
 
@@ -107,6 +111,7 @@ public:
 	decltype(quit_callback) &on_quit();
 	decltype(pointer_enter_callback) &on_pointer_enter();
 	decltype(pointer_motion_callback) &on_pointer_motion();
+	decltype(pointer_button_callback) &on_pointer_button();
 	//int register_callback(std::string event, callback_t f);
 	// events: frame, quit
 	//template <typename... Args>

@@ -61,6 +61,8 @@ public:
 	int get_width();
 	int get_height();
 
+	void swap_BR_channels();
+
 	void release();
 };
 

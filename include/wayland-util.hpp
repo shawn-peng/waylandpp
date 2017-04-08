@@ -236,6 +236,7 @@ class fixed_t {
 	  fixed_t(double x) { fixed = wl_fixed_from_double(x); }
 	  //fixed_t(wl_fixed_t x) { fixed = x; }
 	  void set_data(wl_fixed_t x) { fixed = x; }
+	  wl_fixed_t get_data() { return fixed; }
 	  operator int() { return wl_fixed_to_int(fixed); }
 	  operator double() { return wl_fixed_to_double(fixed); }
 };

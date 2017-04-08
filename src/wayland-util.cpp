@@ -81,7 +81,7 @@ argument_t::argument_t(uint32_t i) {
 }
 
 argument_t::argument_t(fixed_t f) {
-	argument.f = f;
+	argument.f = f.get_data();
 	is_array = false;
 }
 

@@ -84,7 +84,7 @@ int display_server_t::c_wake_callback(int fd, uint32_t mask, void *data) {
 	int ret = read(fd, buf, 16);
 }
 
-void display_server_t::wake() {
+void display_server_t::wake_epoll() {
 	char data = 0;
 	int ret = write(wake_send, &data, sizeof(data));
 }

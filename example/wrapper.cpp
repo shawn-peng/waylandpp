@@ -62,7 +62,7 @@ static const char vertex_shader_source[] =
 "void main()\n"
 "{\n"
 "	gl_Position = vec4(position, 0.0, 1.0);\n"
-"	v_texcoord = position * vec2(0.5) + vec2(0.5);\n"
+"	v_texcoord = -position * vec2(0.5) + vec2(0.5);\n"
 "   //v_texcoord = texcoord;\n"
 "}\n";
 
@@ -353,9 +353,15 @@ display_wrapper_t::display_wrapper_t() {
 
 	// window movement
 	pointer.on_button() = [&](uint32_t serial, uint32_t time, uint32_t button, pointer_button_state state) {
-		// check location
-		if(button == BTN_LEFT && state == pointer_button_state::pressed) {
-			shell_surface.move(seat, serial);
+		auto wrapper_on_buttion = [&]() {
+			if(button == BTN_LEFT && state == pointer_button_state::pressed) {
+				shell_surface.move(seat, serial);
+			}
+		};
+		if (pointer_button_callback) {
+			pointer_button_callback(serial, time, button, state, wrapper_on_buttion);
+		} else {
+			wrapper_on_buttion();
 		}
 	};
 
@@ -457,6 +463,10 @@ display_wrapper_t::on_pointer_enter() {
 decltype(display_wrapper_t::pointer_motion_callback) &
 display_wrapper_t::on_pointer_motion() {
 	return pointer_motion_callback;
+}
+decltype(display_wrapper_t::pointer_button_callback) &
+display_wrapper_t::on_pointer_button() {
+	return pointer_button_callback;
 }
 
 gl_shader *display_wrapper_t::get_shader() {

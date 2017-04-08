@@ -46,7 +46,7 @@ static const char vertex_shader_source[] =
 "void main()\n"
 "{\n"
 "	gl_Position = vec4(position, 0.0, 1.0);\n"
-"	v_texcoord = position * vec2(0.5) + vec2(0.5);\n"
+"	v_texcoord = -position * vec2(0.5) + vec2(0.5);\n"
 "}\n";
 
 
@@ -393,9 +393,9 @@ class example {
 		uint8_t (*p)[width][3] = (decltype(p))image_data;
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
-				p[i][j][2] = image(j, i, 0, 0);
+				p[i][j][0] = image(j, i, 0, 0);
 				p[i][j][1] = image(j, i, 0, 1);
-				p[i][j][0] = image(j, i, 0, 2);
+				p[i][j][2] = image(j, i, 0, 2);
 			}
 		}
 		
@@ -454,6 +454,10 @@ class example {
 			cursor_surface.damage(0, 0, cursor_image.width(), cursor_image.height());
 			cursor_surface.commit();
 			pointer.set_cursor(serial, cursor_surface, 0, 0);
+		};
+
+		pointer.on_motion() = [&](uint32_t time, fixed_t x, fixed_t y) {
+			cout << "motion: x(" << (int)x << "), y(" << (int)y << ")" << endl;
 		};
 
 		// window movement

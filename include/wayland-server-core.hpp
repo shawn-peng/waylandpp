@@ -62,7 +62,7 @@ public:
 
 	void dispatch();
 
-	void wake();
+	void wake_epoll();
 
 	static int c_wake_callback(int fd, uint32_t mask, void *data);
 
@@ -85,6 +85,13 @@ public:
 	//void unlock();
 
 	//static wl_client from_c_ptr(wl_client c*);
+ 
+	friend bool operator<(const client_t& l, const client_t& r) {
+		return l.client < r.client;
+	}
+	bool operator ==(const client_t &c2) {
+		return c2.client == client;
+	}
 
 	void flush();
 	//void get_credentials(pid_t *pid, uid_t uid, gid_t gid);
