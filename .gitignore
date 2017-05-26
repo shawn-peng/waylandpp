@@ -11,6 +11,11 @@ wayland-client-protocol.hpp
 wayland-server-protocol.cpp
 wayland-client-protocol.cpp
 wayland-protocol.cpp
+xdg_shell_unstable_v6-server-protocol.hpp
+xdg_shell_unstable_v6-client-protocol.hpp
+xdg_shell_unstable_v6-server-protocol.cpp
+xdg_shell_unstable_v6-client-protocol.cpp
+xdg_shell_unstable_v6-protocol.cpp
 example/opengles
 example/shm
 doc
