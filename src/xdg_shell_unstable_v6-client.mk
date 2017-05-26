@@ -8,7 +8,8 @@ TARGET = libxdg_shell_unstable_v6-client++.so
 LIBS = wayland-client++
 
 SRCS = \
-	xdg_shell_unstable_v6-client-protocol.cpp
+	xdg_shell_unstable_v6-client-protocol.cpp \
+	xdg_shell_unstable_v6-protocol.cpp
 
 
 $(eval $(call make_sharedlib,$(TARGET),$(SRCS),$(LIBS)))
