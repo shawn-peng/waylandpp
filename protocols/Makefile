@@ -1,9 +1,13 @@
 include ../defs.mk
 
-.PHONY: all
-all: wayland.xml
+PROTOCOLS= wayland xdg-shell-unstable-v6
+.PHONY: all $(PROTOCOLS)
+
+all: $(PROTOCOLS)
+
+$(PROTOCOLS): %: %.xml
 	$(BINDIR)scanner $< $(INCDIR) $(SRCDIR)
-#	$(BINDIR)scanner $< $(INCDIR)wayland-server-protocol.hpp $(INCDIR)wayland-client-protocol.hpp $(SRCDIR)wayland-protocol.cpp
+
 
 
 
