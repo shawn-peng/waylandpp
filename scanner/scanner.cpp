@@ -803,9 +803,9 @@ struct interface_t : public element_t {
 	// 	return ss.str();
 	// }
 
-	std::string print_common_defs() {
+	std::string print_common_defs(const std::string &protocol_name) {
 		std::stringstream ss;
-		ss << "const wl_interface wayland::detail::" << name << "_interface = {" << std::endl
+		ss << "const wl_interface " << protocol_name << "::detail::" << name << "_interface = {" << std::endl
 		   << "    \"" << orig_name << "\"," << std::endl
 		   << "    " << version << "," << std::endl
 		   << "    " << requests.size() << "," << std::endl
@@ -1220,15 +1220,15 @@ int main(int argc, char *argv[]) {
 	//std::string client_header_filename(argv[3]);
 	//std::string source_filename(argv[4]);
 
-	std::fstream wayland_server_hpp(server_header_filename,
+	std::fstream protocol_server_hpp(server_header_filename,
 	                                std::ios_base::out | std::ios_base::trunc);
-	std::fstream wayland_client_hpp(client_header_filename,
+	std::fstream protocol_client_hpp(client_header_filename,
 	                                std::ios_base::out | std::ios_base::trunc);
-	std::fstream wayland_server_cpp(server_source_filename,
+	std::fstream protocol_server_cpp(server_source_filename,
 	                         std::ios_base::out | std::ios_base::trunc);
-	std::fstream wayland_client_cpp(client_source_filename,
+	std::fstream protocol_client_cpp(client_source_filename,
 	                         std::ios_base::out | std::ios_base::trunc);
-	std::fstream wayland_cpp(common_source_filename,
+	std::fstream protocol_cpp(common_source_filename,
 	                         std::ios_base::out | std::ios_base::trunc);
 
 	// header vars
@@ -1240,7 +1240,7 @@ int main(int argc, char *argv[]) {
 	// client header
 
 	// header intro
-	wayland_client_hpp << "#ifndef " << client_header_guard << std::endl
+	protocol_client_hpp << "#ifndef " << client_header_guard << std::endl
 	                   << "#define " << client_header_guard << std::endl
 	                   << std::endl
 	                   << "#include <array>" << std::endl
@@ -1250,32 +1250,32 @@ int main(int argc, char *argv[]) {
 	                   << "#include <vector>" << std::endl
 	                   << "#include <wayland-util.hpp>" << std::endl
 	                   << "#include <wayland-client-core.hpp>" << std::endl
+	                   << "#include <wayland-client-protocol.hpp>" << std::endl
 	                   << std::endl
-	                   //<< "#include <wayland-client.hpp>" << std::endl
 	                   << std::endl
 	                   << "namespace wayland {" << std::endl
 	                   << std::endl;
 
 	// forward declarations
 	for (auto &iface : interfaces) {
-		wayland_client_hpp << iface.print_forward(CLIENT);
+		protocol_client_hpp << iface.print_forward(CLIENT);
 	}
-	wayland_client_hpp << std::endl;
+	protocol_client_hpp << std::endl;
 
 	// interface headers
-	wayland_client_hpp << "namespace detail {" << std::endl;
+	protocol_client_hpp << "namespace detail {" << std::endl;
 	for (auto &iface : interfaces) {
-		wayland_client_hpp << iface.print_interface_header();
+		protocol_client_hpp << iface.print_interface_header();
 	}
-	wayland_client_hpp  << "}" << std::endl
+	protocol_client_hpp  << "}" << std::endl
 	                    << std::endl;
 
 	// class declarations
 	for (auto &iface : interfaces) {
-		wayland_client_hpp << iface.print_header(CLIENT) << std::endl;
+		protocol_client_hpp << iface.print_header(CLIENT) << std::endl;
 	}
 
-	wayland_client_hpp << std::endl
+	protocol_client_hpp << std::endl
 	                   << "}" << std::endl
 	                   << std::endl
 	                   << "#endif" << std::endl;
@@ -1283,7 +1283,7 @@ int main(int argc, char *argv[]) {
 	// server header
 
 	// header intro
-	wayland_server_hpp << "#ifndef " << server_header_guard << std::endl
+	protocol_server_hpp << "#ifndef " << server_header_guard << std::endl
 	                   << "#define " << server_header_guard << std::endl
 	                   << std::endl
 	                   << "#include <array>" << std::endl
@@ -1293,6 +1293,7 @@ int main(int argc, char *argv[]) {
 	                   << "#include <vector>" << std::endl
 	                   << "#include <wayland-util.hpp>" << std::endl
 	                   << "#include <wayland-server-core.hpp>" << std::endl
+	                   << "#include <wayland-server-protocol.hpp>" << std::endl
 	                   << std::endl
 	                   << std::endl
 	                   << "namespace wayland {" << std::endl
@@ -1300,24 +1301,24 @@ int main(int argc, char *argv[]) {
 
 	// forward declarations
 	for (auto &iface : interfaces) {
-		wayland_server_hpp << iface.print_forward(SERVER);
+		protocol_server_hpp << iface.print_forward(SERVER);
 	}
-	wayland_server_hpp << std::endl;
+	protocol_server_hpp << std::endl;
 
 	// interface headers
-	wayland_server_hpp << "namespace detail {" << std::endl;
+	protocol_server_hpp << "namespace detail {" << std::endl;
 	for (auto &iface : interfaces) {
-		wayland_server_hpp << iface.print_interface_header();
+		protocol_server_hpp << iface.print_interface_header();
 	}
-	wayland_server_hpp  << "}" << std::endl
+	protocol_server_hpp  << "}" << std::endl
 	                    << std::endl;
 
 	// class declarations
 	for (auto &iface : interfaces) {
-		wayland_server_hpp << iface.print_header(SERVER) << std::endl;
+		protocol_server_hpp << iface.print_header(SERVER) << std::endl;
 	}
 
-	wayland_server_hpp << std::endl
+	protocol_server_hpp << std::endl
 	                   << "}" << std::endl
 	                   << std::endl
 	                   << "#endif" << std::endl;
@@ -1325,13 +1326,15 @@ int main(int argc, char *argv[]) {
 	// source file
 	
 	// server source
-	wayland_server_cpp << "#include <array>" << std::endl
+	protocol_server_cpp << "#include <array>" << std::endl
 	                   << "#include <functional>" << std::endl
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-util.hpp>" << std::endl
 	                   << "#include <wayland-server-core.hpp>" << std::endl
 	                   << "#include <wayland-server-protocol.hpp>" << std::endl
+	                   << "#include <" << protocol.name << "-server-protocol.hpp>" << std::endl
 	                   << std::endl
 	                   << std::endl
 	                   << "namespace wayland {" << std::endl
@@ -1341,22 +1344,24 @@ int main(int argc, char *argv[]) {
 
 	// class member function definitions
 	for (auto &iface : interfaces) {
-		wayland_server_cpp << iface.print_memdef(SERVER) << std::endl;
+		protocol_server_cpp << iface.print_memdef(SERVER) << std::endl;
 	}
 
-	wayland_server_cpp << std::endl
+	protocol_server_cpp << std::endl
 	                   << "}" << std::endl
 	                   << std::endl;
 
 	// client source
 	
-	wayland_client_cpp << "#include <array>" << std::endl
+	protocol_client_cpp << "#include <array>" << std::endl
 	                   << "#include <functional>" << std::endl
 	                   << "#include <memory>" << std::endl
 	                   << "#include <string>" << std::endl
 	                   << "#include <vector>" << std::endl
+	                   << "#include <wayland-util.hpp>" << std::endl
 	                   << "#include <wayland-client-core.hpp>" << std::endl
 	                   << "#include <wayland-client-protocol.hpp>" << std::endl
+	                   << "#include <" << protocol.name << "-client-protocol.hpp>" << std::endl
 	                   << std::endl
 	                   << std::endl
 	                   << "namespace wayland {" << std::endl
@@ -1366,15 +1371,15 @@ int main(int argc, char *argv[]) {
 
 	// class member function definitions
 	for (auto &iface : interfaces) {
-		wayland_client_cpp << iface.print_memdef(CLIENT) << std::endl;
+		protocol_client_cpp << iface.print_memdef(CLIENT) << std::endl;
 	}
 
-	wayland_client_cpp << std::endl
+	protocol_client_cpp << std::endl
 	                   << "}" << std::endl
 	                   << std::endl;
 
 	// source intro
-	wayland_cpp << "#include <wayland-client-protocol.hpp>" << std::endl
+	protocol_cpp << "#include <" << protocol.name << "-client-protocol.hpp>" << std::endl
 	            << std::endl
 	            << "using namespace wayland;" << std::endl
 	            << "using namespace detail;" << std::endl
@@ -1382,20 +1387,20 @@ int main(int argc, char *argv[]) {
 
 	// interface bodys
 	for (auto &iface : interfaces)
-		wayland_cpp << iface.print_common_defs();
+		protocol_cpp << iface.print_common_defs(protocol.name);
 
 	// class member definitions
 	//for (auto &iface : interfaces)
 	//	if (iface.name != "display")
-	//		wayland_cpp << iface.print_body() << std::endl;
-	//wayland_cpp << std::endl;
+	//		protocol_cpp << iface.print_body() << std::endl;
+	//protocol_cpp << std::endl;
 
 	// clean up
-	wayland_client_hpp.close();
-	wayland_server_hpp.close();
-	wayland_client_cpp.close();
-	wayland_server_cpp.close();
-	wayland_cpp.close();
+	protocol_client_hpp.close();
+	protocol_server_hpp.close();
+	protocol_client_cpp.close();
+	protocol_server_cpp.close();
+	protocol_cpp.close();
 
 	return 0;
 }
