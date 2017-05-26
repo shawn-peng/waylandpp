@@ -805,7 +805,7 @@ struct interface_t : public element_t {
 
 	std::string print_common_defs(const std::string &protocol_name) {
 		std::stringstream ss;
-		ss << "const wl_interface " << protocol_name << "::detail::" << name << "_interface = {" << std::endl
+		ss << "const wl_interface wayland::detail::" << name << "_interface = {" << std::endl
 		   << "    \"" << orig_name << "\"," << std::endl
 		   << "    " << version << "," << std::endl
 		   << "    " << requests.size() << "," << std::endl
