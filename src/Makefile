@@ -1,7 +1,8 @@
 
 .PHONY: all
 
-TARGETS = server client egl cursor shm
+TARGETS = server client egl cursor shm xdg_shell_unstable_v6-server \
+		  xdg_shell_unstable_v6-client
 
 .PHONY: $(TARGETS)
 
