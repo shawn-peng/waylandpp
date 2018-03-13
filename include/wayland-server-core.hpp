@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <functional>
 #include <wayland-server-core.h>
 #include <wayland-util.hpp>
 
