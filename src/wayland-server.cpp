@@ -171,6 +171,10 @@ resource_t &resource_t::operator=(const resource_t& p) {
 	display = p.display;
 	dontdestroy = p.dontdestroy;
 
+	if (!object_t::object) {
+		return *this;
+	}
+
 	if(!data) {
 		std::cerr << "Found resource_t without meta data." << std::endl;
 		data = new resource_data_t{std::shared_ptr<requests_base_t>(), 0};

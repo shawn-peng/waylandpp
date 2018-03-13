@@ -187,14 +187,14 @@ class bitfield {
 };
 
 class object_t {
-  private:
+  protected:
 	wl_object *object;
-
-	friend class argument_t;
 
   public:
 	object_t(wl_object *obj) : object(obj) { }
 	object_t &operator =(const object_t &o) { object = o.object; }
+
+	friend class argument_t;
 };
 
 class argument_t {
