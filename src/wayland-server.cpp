@@ -171,7 +171,7 @@ resource_t &resource_t::operator=(const resource_t& p) {
 	display = p.display;
 	dontdestroy = p.dontdestroy;
 
-	if (!object_t::object) {
+	if (!*this) {
 		return *this;
 	}
 

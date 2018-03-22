@@ -135,7 +135,7 @@ private:
 
 	// Member vars
 private:
-	wl_resource *resource;
+	wl_resource *resource; // kind of duplicate to object_t for convenience
 	resource_data_t *data; // a reference to wl_resource.user_data
 	bool display;
 	bool dontdestroy;

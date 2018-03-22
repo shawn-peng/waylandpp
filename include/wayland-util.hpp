@@ -187,12 +187,15 @@ class bitfield {
 };
 
 class object_t {
-  protected:
+  //protected:
+  private:
 	wl_object *object;
 
   public:
 	object_t(wl_object *obj) : object(obj) { }
 	object_t &operator =(const object_t &o) { object = o.object; }
+
+	operator bool() const { return object != NULL; }
 
 	friend class argument_t;
 };
@@ -290,6 +293,16 @@ class array_t {
 			v.push_back(*p);
 		}
 		return v;
+	}
+
+	template <typename T> array_t(std::initializer_list<T> init_list) {
+		wl_array_init(&a);
+		wl_array_add(&a, init_list.size()*sizeof(T));
+		auto iter = init_list.begin();
+		T *p;
+		wl_array_for_each_cpp(p, &a) {
+			*p = *iter++;
+		}
 	}
 };
 
