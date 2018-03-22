@@ -889,6 +889,7 @@ struct interface_t : public element_t {
 			ss << server_class << "::" << server_class << "(const resource_t &p)" << std::endl
 			   << "  : resource_t(p) {" << std::endl
 			   //<< "    set_requests(std::shared_ptr<resource_t::requests_base_t>(new requests_t), dispatcher);" << std::endl
+			   << "    if (!p) return;" << std::endl
 			   << "    bind();" << std::endl
 			   << "    interface = &" << name << "_interface;" << std::endl
 			   << "    copy_constructor = [] (const resource_t &p) -> resource_t" << std::endl
